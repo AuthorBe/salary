@@ -20,12 +20,24 @@ class Employee
         $db = getDB();
         $stmt = $db->query("
             SELECT e.*, 
-                   m.gaji_pokok,
-                   d.upah_harian
+                   m.gaji_pokok
             FROM karyawan e
             LEFT JOIN pengaturan_gaji_bulanan m ON e.id = m.id_karyawan
-            LEFT JOIN pengaturan_upah_harian d ON e.id = d.id_karyawan
-            ORDER BY e.name ASC
+            ORDER BY e.tipe_gaji ASC, e.name ASC
+        ");
+        return $stmt->fetchAll();
+    }
+
+    public function getAllActive(): array
+    {
+        $db = getDB();
+        $stmt = $db->query("
+            SELECT e.*, 
+                   m.gaji_pokok
+            FROM karyawan e
+            LEFT JOIN pengaturan_gaji_bulanan m ON e.id = m.id_karyawan
+            WHERE e.aktif = 1
+            ORDER BY e.tipe_gaji ASC, e.name ASC
         ");
         return $stmt->fetchAll();
     }
@@ -35,11 +47,9 @@ class Employee
         $db = getDB();
         $stmt = $db->prepare("
             SELECT e.*, 
-                   m.gaji_pokok,
-                   d.upah_harian
+                   m.gaji_pokok
             FROM karyawan e
             LEFT JOIN pengaturan_gaji_bulanan m ON e.id = m.id_karyawan
-            LEFT JOIN pengaturan_upah_harian d ON e.id = d.id_karyawan
             WHERE e.id = ?
         ");
         $stmt->execute([$id]);
@@ -109,7 +119,6 @@ class Employee
             ]);
 
             $db->prepare("DELETE FROM pengaturan_gaji_bulanan WHERE id_karyawan = ?")->execute([$id]);
-            $db->prepare("DELETE FROM pengaturan_upah_harian WHERE id_karyawan = ?")->execute([$id]);
 
             // Insert sub-tabel yang relevan dengan tipe baru
             if ($data['tipe_gaji'] === 'bulanan') {
@@ -133,4 +142,16 @@ class Employee
         $stmt = $db->prepare("DELETE FROM karyawan WHERE id = ?");
         return $stmt->execute([$id]);
     }
+
+    /**
+     * Memeriksa apakah nama karyawan sudah ada di database (case-insensitive).
+     */
+    public function nameExists(string $name, int $excludeId = 0): bool
+    {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT COUNT(*) FROM karyawan WHERE LOWER(name) = LOWER(?) AND id != ?");
+        $stmt->execute([$name, $excludeId]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
 }
+

@@ -29,6 +29,13 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body p-4">
         <form action="<?= url('/payroll/store') ?>" method="POST">
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <label class="form-label fw-medium">Judul / Nama Payroll <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" placeholder="Contoh: Gaji Borongan Lebaran, atau Gaji Minggu I Agustus" required>
+                    <div class="form-text">Berikan nama agar mudah dikenali di riwayat dan laporan.</div>
+                </div>
+            </div>
             <?= csrfField() ?>
 
             <div class="row g-4 mb-4">

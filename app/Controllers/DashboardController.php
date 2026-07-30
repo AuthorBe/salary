@@ -64,7 +64,6 @@ class DashboardController
         $totalEmployees = count($activeEmployees);
 
         $boronganCount = count(array_filter($activeEmployees, fn($e) => $e['tipe_gaji'] === 'borongan'));
-        $harianCount   = count(array_filter($activeEmployees, fn($e) => $e['tipe_gaji'] === 'harian'));
         $bulananCount  = count(array_filter($activeEmployees, fn($e) => $e['tipe_gaji'] === 'bulanan'));
 
         // 2. Data Kehadiran Hari Ini
@@ -151,7 +150,6 @@ class DashboardController
             'today'              => $today,
             'totalEmployees'     => $totalEmployees,
             'boronganCount'      => $boronganCount,
-            'harianCount'        => $harianCount,
             'bulananCount'       => $bulananCount,
             'presentTodayCount'  => $presentTodayCount,
             'totalBungkusToday'  => $totalBungkusToday,
@@ -177,3 +175,4 @@ class DashboardController
         denyAccess();
     }
 }
+

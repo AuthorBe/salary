@@ -24,19 +24,19 @@
  * @param array  $data    Variabel yang di-extract ke scope view
  * @param string $layout  Nama layout di /app/Views/layouts/ ('main', 'auth', 'error')
  */
-function view(string $view, array $data = [], string $layout = 'main'): void
+function view(string $_viewPath, array $_viewData = [], string $_layoutName = 'main'): void
 {
-    // Extract $data ke scope lokal (EXTR_SKIP: jangan timpa variabel yang sudah ada)
-    extract($data, EXTR_SKIP);
+    // Extract $_viewData ke scope lokal (EXTR_SKIP: jangan timpa variabel yang sudah ada)
+    extract($_viewData, EXTR_SKIP);
 
-    $viewFile   = APP_ROOT . '/app/Views/' . $view . '.php';
-    $layoutFile = APP_ROOT . '/app/Views/layouts/' . $layout . '.php';
+    $viewFile   = APP_ROOT . '/app/Views/' . $_viewPath . '.php';
+    $layoutFile = APP_ROOT . '/app/Views/layouts/' . $_layoutName . '.php';
 
     if (!file_exists($viewFile)) {
-        throw new RuntimeException("View tidak ditemukan: {$view}");
+        throw new RuntimeException("View tidak ditemukan: {$_viewPath}");
     }
     if (!file_exists($layoutFile)) {
-        throw new RuntimeException("Layout tidak ditemukan: {$layout}");
+        throw new RuntimeException("Layout tidak ditemukan: {$_layoutName}");
     }
 
     // Buffer konten view
@@ -64,7 +64,7 @@ function renderAlert(string $type, string $message, int $autoDismissMs = 3000): 
     $dismissAttr = $autoDismissMs > 0 ? " data-auto-dismiss=\"{$autoDismissMs}\"" : '';
 
     return sprintf(
-        '<div class="alert alert-%s d-flex align-items-start mb-4 border-0 shadow-sm"%s><i class="bi %s fs-4 me-3 mt-1"></i><div class="w-100">%s</div></div>',
+        '<div class="alert alert-%s" role="alert"%s><i class="bi %s"></i><span>%s</span><button type="button" class="alert-close" onclick="this.closest(\'.alert\').remove()" aria-label="Tutup"><i class="bi bi-x-lg"></i></button></div>',
         e($type),
         $dismissAttr,
         $icon,
@@ -309,10 +309,15 @@ function denyAccess(): never
  */
 function requireLogin(): void
 {
-    if (empty($_SESSION['user_id']) || empty($_SESSION['user_role_id'])) {
-        // Hapus session nyasar jika ada
+    // Jika tidak ada user_id, berarti belum login
+    if (empty($_SESSION['user_id'])) {
         session_unset();
-        // Simpan URL tujuan supaya bisa redirect kembali setelah login (opsional di fase ini)
+        redirect('/login');
+    }
+
+    // Jika dia BUKAN superuser, maka WAJIB memiliki role_id (id_peran)
+    if (!isSuperuser() && empty($_SESSION['user_role_id'])) {
+        session_unset();
         redirect('/login');
     }
 }
@@ -322,7 +327,7 @@ function requireLogin(): void
  */
 function isLoggedIn(): bool
 {
-    return !empty($_SESSION['user_id']);
+    return isset($_SESSION['user_id']);
 }
 
 /**
@@ -374,9 +379,10 @@ function formatRupiah(int $amount): string
  */
 function parseRupiah(string $rupiah): int
 {
+    $isNegative = (strpos(trim($rupiah), '-') === 0);
     // Hapus karakter selain angka
     $clean = preg_replace('/[^0-9]/', '', $rupiah);
-    return (int) $clean;
+    return $isNegative ? -(int)$clean : (int)$clean;
 }
 
 /**

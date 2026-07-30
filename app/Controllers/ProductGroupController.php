@@ -58,6 +58,13 @@ class ProductGroupController
         }
 
         $model = new ProductGroup();
+
+        if ($model->nameExists($name, $id)) {
+            $_SESSION['flash_error'] = "Gagal: Nama kelompok harga '{$name}' sudah digunakan. Silakan gunakan nama lain.";
+            redirect('/product-groups/form' . ($id > 0 ? '?id='.$id : ''));
+            return;
+        }
+
         if ($id > 0) {
             $model->update($id, $name, $price);
             $_SESSION['flash_success'] = 'Kelompok harga berhasil diperbarui.';

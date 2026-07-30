@@ -21,7 +21,7 @@ class Attendance
     public function getByDate(string $date): array
     {
         $stmt = $this->db->prepare("
-            SELECT id_karyawan, hadir, catatan
+            SELECT id_karyawan, hadir, catatan, lembur_nominal
             FROM absensi
             WHERE date = ?
         ");
@@ -30,8 +30,9 @@ class Attendance
         $result = [];
         while ($row = $stmt->fetch()) {
             $result[$row['id_karyawan']] = [
-                'hadir' => (bool) $row['hadir'],
-                'catatan'      => $row['catatan'] ?? ''
+                'hadir'          => (bool) $row['hadir'],
+                'catatan'        => $row['catatan'] ?? '',
+                'lembur_nominal' => (int) ($row['lembur_nominal'] ?? 0)
             ];
         }
         return $result;
@@ -78,5 +79,36 @@ class Attendance
             $this->db->rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Simpan kehadiran dan lembur untuk satu karyawan (dipakai di Input Lembur).
+     */
+    public function saveSingle(int $employeeId, string $date, int $isPresent, string $notes, int $lemburNominal): void
+    {
+        // PROTEKSI: Cek apakah data pada tanggal ini sudah dikunci (masuk payroll)
+        $checkLock = $this->db->prepare("SELECT COUNT(*) FROM absensi WHERE date = ? AND id_karyawan = ? AND id_penggajian IS NOT NULL");
+        $checkLock->execute([$date, $employeeId]);
+        if ($checkLock->fetchColumn() > 0) {
+            throw new \Exception("Data absensi pada tanggal ini sudah Terkunci karena telah masuk ke proses Penggajian (Payroll).");
+        }
+
+        if ($isPresent === 1) {
+            $notes = null;
+        } else {
+            if (trim($notes) === '') {
+                $notes = 'Alfa';
+            }
+        }
+
+        $stmt = $this->db->prepare("
+            INSERT INTO absensi (id_karyawan, date, hadir, catatan, lembur_nominal)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE 
+                hadir = VALUES(hadir),
+                catatan = VALUES(catatan),
+                lembur_nominal = VALUES(lembur_nominal)
+        ");
+        $stmt->execute([$employeeId, $date, $isPresent, $notes, $lemburNominal]);
     }
 }

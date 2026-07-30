@@ -221,7 +221,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ── Auto-dismiss Alerts ─────────────────────────────────────────────────
+  // ── Auto-dismiss Alerts & URL Clean up ──────────────────────────────────
+  // Clean notification query parameters (e.g. ?logged_out=1) from URL so reloading page won't re-trigger alert
+  if (window.location.search.includes('logged_out=')) {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('logged_out');
+      const cleanSearch = url.searchParams.toString();
+      const cleanUrl = url.pathname + (cleanSearch ? '?' + cleanSearch : '');
+      window.history.replaceState({}, document.title, cleanUrl);
+    } catch (e) {
+      console.warn('URL parameter cleanup failed:', e);
+    }
+  }
+
   // Elemen dengan data-auto-dismiss="3000" akan fade out setelah N millisecond.
   const initAutoDismiss = (container = document) => {
     container.querySelectorAll?.('[data-auto-dismiss]').forEach((el) => {

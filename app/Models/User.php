@@ -30,7 +30,7 @@ class User
             'SELECT u.*, r.name AS role_name
              FROM pengguna u
              LEFT JOIN peran r ON r.id = u.id_peran
-             WHERE u.nama_pengguna = ? AND u.aktif = 1
+             WHERE LOWER(u.nama_pengguna) = LOWER(?) AND u.aktif = 1
              LIMIT 1'
         );
         $stmt->execute([trim($username)]);
@@ -123,9 +123,21 @@ class User
     public function usernameExists(string $username, int $excludeId = 0): bool
     {
         $stmt = $this->db->prepare(
-            'SELECT COUNT(*) FROM pengguna WHERE nama_pengguna = ? AND id != ?'
+            'SELECT COUNT(*) FROM pengguna WHERE LOWER(nama_pengguna) = LOWER(?) AND id != ?'
         );
         $stmt->execute([$username, $excludeId]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    /**
+     * Cek apakah name sudah dipakai (untuk mencegah duplikasi nama user).
+     */
+    public function nameExists(string $name, int $excludeId = 0): bool
+    {
+        $stmt = $this->db->prepare(
+            'SELECT COUNT(*) FROM pengguna WHERE LOWER(name) = LOWER(?) AND id != ?'
+        );
+        $stmt->execute([$name, $excludeId]);
         return (int) $stmt->fetchColumn() > 0;
     }
 

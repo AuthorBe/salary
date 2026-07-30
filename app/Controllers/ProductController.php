@@ -63,6 +63,13 @@ class ProductController
         }
 
         $model = new Product();
+
+        if ($model->nameExists($name, $id)) {
+            $_SESSION['flash_error'] = "Gagal: Nama produk '{$name}' sudah digunakan. Silakan gunakan nama lain.";
+            redirect('/products/form' . ($id > 0 ? '?id='.$id : ''));
+            return;
+        }
+
         if ($id > 0) {
             $model->update($id, $name, $priceGroupId);
             $_SESSION['flash_success'] = 'Produk berhasil diperbarui.';

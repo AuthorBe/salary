@@ -1,0 +1,1 @@
+ALTER TABLE absensi ADD COLUMN lembur_nominal INT NOT NULL DEFAULT 0 AFTER hadir;

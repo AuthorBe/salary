@@ -16,10 +16,20 @@ class PayrollController
         $prModel = new PayrollRun();
         $payrolls = $prModel->getAll();
 
+        $pageGuide = '
+            <p>Halaman <strong>Data Payroll</strong> adalah pusat kendali untuk melakukan perhitungan (generate) gaji semua karyawan.</p>
+            <ul class="mb-0 text-muted">
+                <li class="mb-2">Klik tombol <strong>Generate Payroll Baru</strong> untuk memulai perhitungan gaji otomatis berdasarkan data kehadiran, produksi borongan, tunjangan, dan kasbon.</li>
+                <li class="mb-2">Payroll yang baru digenerate akan berstatus <span class="badge bg-warning-subtle text-warning">Draft</span>. Artinya data tersebut masih bisa di-_review_ dan di-edit (seperti menambah Denda/Potongan Lain atau Tunjangan Ekstra).</li>
+                <li>Setelah direview dan dirasa akurat, Anda harus mengklik tombol <span class="badge bg-success">Approve</span>. Payroll yang sudah disetujui akan terkunci permanen, menjadi riwayat resmi, dan barulah bisa dicetak slip gajinya.</li>
+            </ul>
+        ';
+
         view('payroll/index', [
             'title'     => 'Data Payroll – Salary',
             'pageTitle' => 'Data Payroll',
             'pageKey'   => 'payroll',
+            'pageGuide' => $pageGuide,
             'payrolls'  => $payrolls
         ]);
     }
@@ -92,6 +102,12 @@ class PayrollController
             return;
         }
 
+        $name = trim($_POST['name'] ?? '');
+        if ($name === '') {
+            // Fallback nama jika tidak diisi
+            $name = 'Gaji ' . ucfirst($type) . ' ' . date('d M Y', strtotime($period_start));
+        }
+
         $db = getDB();
 
         // Check if there's already a draft for this type
@@ -107,8 +123,8 @@ class PayrollController
             $db->beginTransaction();
 
             // 1. Create payroll run
-            $stmt = $db->prepare("INSERT INTO penggajian (periode_awal, periode_akhir, type, status) VALUES (?, ?, ?, 'draft')");
-            $stmt->execute([$period_start, $period_end, $type]);
+            $stmt = $db->prepare("INSERT INTO penggajian (periode_awal, periode_akhir, type, status, name) VALUES (?, ?, ?, 'draft', ?)");
+            $stmt->execute([$period_start, $period_end, $type, $name]);
             $runId = (int)$db->lastInsertId();
 
             // 2. Fetch target employees
@@ -132,7 +148,7 @@ class PayrollController
                 
                 // Get Attendances (unlocked)
                 $attStmt = $db->prepare("
-                    SELECT COUNT(*) as days 
+                    SELECT COUNT(*) as days, SUM(lembur_nominal) as lembur_bulanan
                     FROM absensi 
                     WHERE id_karyawan = ? AND date BETWEEN ? AND ? 
                       AND hadir = 1 AND id_penggajian IS NULL
@@ -145,9 +161,12 @@ class PayrollController
 
                 // Get Productions (unlocked)
                 $prodPayTotal = 0.00;
+                $overtimePayTotal = 0.00;
                 if ($emp['tipe_gaji'] === 'borongan') {
                     $prodStmt = $db->prepare("
-                        SELECT SUM(p.kuantitas * pg.harga_per_bungkus) as total
+                        SELECT 
+                            SUM(p.kuantitas * pg.harga_per_bungkus) as total_reguler,
+                            SUM(p.lembur_kuantitas * pg.harga_per_bungkus) as total_lembur
                         FROM produksi p
                         JOIN produk prod ON p.id_produk = prod.id
                         JOIN kelompok_harga_produk pg ON prod.id_kelompok_harga = pg.id
@@ -155,11 +174,15 @@ class PayrollController
                           AND p.id_penggajian IS NULL
                     ");
                     $prodStmt->execute([$emp['id'], $period_start, $period_end]);
-                    $prodPayTotal = (float)$prodStmt->fetchColumn() ?: 0.00;
+                    $prodData = $prodStmt->fetch();
+                    $prodPayTotal = (float)($prodData['total_reguler'] ?? 0);
+                    $overtimePayTotal = (float)($prodData['total_lembur'] ?? 0);
+                } else if ($emp['tipe_gaji'] === 'bulanan') {
+                    $overtimePayTotal = (float)($attData['lembur_bulanan'] ?? 0);
                 }
 
                 // If completely inactive in this period, skip generating a payroll item for them
-                if ($attendanceDays == 0 && $prodPayTotal == 0 && $emp['tipe_gaji'] !== 'bulanan') {
+                if ($attendanceDays == 0 && $prodPayTotal == 0 && $overtimePayTotal == 0 && $emp['tipe_gaji'] !== 'bulanan') {
                     continue; // Skip borongan workers who didn't work at all this week
                 }
 
@@ -193,7 +216,10 @@ class PayrollController
                 }
 
                 // Initial Net Salary
-                $netSalary = $baseSalary + $attendancePayTotal + $prodPayTotal + $monthlyAllowance - $debtsDeductionTotal;
+                $netSalary = $baseSalary + $attendancePayTotal + $prodPayTotal + $overtimePayTotal + $monthlyAllowance - $debtsDeductionTotal;
+                if ($netSalary < 0) {
+                    $netSalary = 0;
+                }
 
                 // Build details JSON
                 $detailsJson = json_encode([
@@ -204,12 +230,12 @@ class PayrollController
                 $insertItem = $db->prepare("
                     INSERT INTO rincian_penggajian (
                         id_penggajian, id_karyawan, gaji_pokok, hari_hadir, total_uang_kehadiran,
-                        total_upah_produksi, tunjangan_bulanan, total_potongan_kasbon, gaji_bersih, rincian_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        total_upah_produksi, total_upah_lembur, tunjangan_bulanan, total_potongan_kasbon, gaji_bersih, rincian_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $insertItem->execute([
                     $runId, $emp['id'], $baseSalary, $attendanceDays, $attendancePayTotal,
-                    $prodPayTotal, $monthlyAllowance, $debtsDeductionTotal, $netSalary, $detailsJson
+                    $prodPayTotal, $overtimePayTotal, $monthlyAllowance, $debtsDeductionTotal, $netSalary, $detailsJson
                 ]);
                 
                 $itemCount++;
@@ -264,12 +290,12 @@ class PayrollController
         $itemId = (int)($_POST['item_id'] ?? 0);
         $runId = (int)($_POST['run_id'] ?? 0);
         
-        $debtDeduction = (float)str_replace('.', '', $_POST['total_potongan_kasbon'] ?? '0');
-        $otherAllowances = (float)str_replace('.', '', $_POST['tunjangan_lain'] ?? '0');
+        $debtDeduction = (float)parseRupiah($_POST['total_potongan_kasbon'] ?? '0');
+        $otherAllowances = (float)parseRupiah($_POST['tunjangan_lain'] ?? '0');
         $otherAllowancesNotes = trim($_POST['catatan_tunjangan_lain'] ?? '');
-        $otherDeductions = (float)str_replace('.', '', $_POST['potongan_lain'] ?? '0');
+        $otherDeductions = (float)parseRupiah($_POST['potongan_lain'] ?? '0');
         $otherDeductionsNotes = trim($_POST['catatan_potongan_lain'] ?? '');
-        $roundingAmount = (float)str_replace('.', '', $_POST['nominal_pembulatan'] ?? '0');
+        $roundingAmount = (float)parseRupiah($_POST['nominal_pembulatan'] ?? '0');
 
         $db = getDB();
         
@@ -315,9 +341,13 @@ class PayrollController
         $base = (float)$item['gaji_pokok'];
         $att = (float)$item['total_uang_kehadiran'];
         $prod = (float)$item['total_upah_produksi'];
+        $lembur = (float)$item['total_upah_lembur'];
         $monthly = (float)$item['tunjangan_bulanan'];
 
-        $newNet = $base + $att + $prod + $monthly + $otherAllowances - $debtDeduction - $otherDeductions + $roundingAmount;
+        $newNet = $base + $att + $prod + $lembur + $monthly + $otherAllowances - $debtDeduction - $otherDeductions + $roundingAmount;
+        if ($newNet < 0) {
+            $newNet = 0;
+        }
 
         $update = $db->prepare("
             UPDATE rincian_penggajian 
@@ -475,8 +505,8 @@ class PayrollController
             $prModel->delete($runId);
 
             $db->commit();
-            $_SESSION['flash_success'] = 'Payroll berhasil dibatalkan dan dikembalikan. Silakan Generate Ulang dari awal.';
-            redirect('/payroll/create?type=' . $run['type'] . '&periode_awal=' . $run['periode_awal'] . '&periode_akhir=' . $run['periode_akhir']);
+            $_SESSION['flash_success'] = 'Payroll berhasil dibatalkan dan data telah dikembalikan seperti semula.';
+            redirect('/payroll');
 
         } catch (\Throwable $e) {
             if ($db->inTransaction()) {
@@ -487,5 +517,46 @@ class PayrollController
             $_SESSION['flash_error'] = 'Gagal membatalkan payroll: ' . $e->getMessage();
             redirect('/payroll/preview?id=' . $runId);
         }
+    }
+
+    public function exportPdf(): void
+    {
+        checkPermission('payroll');
+
+        $runId = (int)($_GET['id'] ?? 0);
+        $db = getDB();
+
+        // Ambil info payroll run
+        $stmtRun = $db->prepare("SELECT * FROM penggajian WHERE id = ?");
+        $stmtRun->execute([$runId]);
+        $run = $stmtRun->fetch();
+
+        if (!$run) {
+            $_SESSION['flash_error'] = 'Data payroll tidak valid.';
+            redirect('/payroll');
+            return;
+        }
+
+        // Ambil semua rincian
+        $stmtItems = $db->prepare("
+            SELECT pi.*, e.name as employee_name, e.tipe_gaji
+            FROM rincian_penggajian pi
+            JOIN karyawan e ON pi.id_karyawan = e.id
+            WHERE pi.id_penggajian = ?
+            ORDER BY e.name ASC
+        ");
+        $stmtItems->execute([$runId]);
+        $items = $stmtItems->fetchAll();
+
+        ob_start();
+        include APP_ROOT . '/app/Views/reports/pdf_rekap.php';
+        $html = ob_get_clean();
+
+        $runName = $run['name'] ?: ('Run ' . $runId);
+        $safeRunName = preg_replace('/[^A-Za-z0-9_\- ]/', '', $runName);
+        $statusStr = $run['status'] === 'draft' ? 'DRAFT ' : '';
+        $filename = 'Rekap ' . $statusStr . $safeRunName;
+        
+        streamPdf($html, $filename, 'A4', 'landscape');
     }
 }

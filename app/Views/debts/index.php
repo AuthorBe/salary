@@ -209,10 +209,10 @@
                                             </li>
                                             <li><hr class="dropdown-divider opacity-25"></li>
                                             <li>
-                                                <form action="<?= url('/debts/delete') ?>" method="POST" onsubmit="return confirm('Yakin ingin menghapus catatan kasbon ini?')">
+                                                <form action="<?= url('/debts/delete') ?>" method="POST">
                                                     <?= csrfField() ?>
                                                     <input type="hidden" name="id" value="<?= e($d['id']) ?>">
-                                                    <button type="submit" class="dropdown-item d-flex align-items-center text-danger fw-medium py-2">
+                                                    <button type="submit" class="dropdown-item d-flex align-items-center text-danger fw-medium py-2" data-confirm="Yakin ingin menghapus catatan kasbon ini?">
                                                         <i class="bi bi-trash me-2 fs-6"></i> Hapus Data
                                                     </button>
                                                 </form>

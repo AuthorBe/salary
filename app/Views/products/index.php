@@ -66,10 +66,10 @@
                                     <a href="<?= url('/products/form?id=' . $product['id']) ?>" class="btn-action btn-action-primary icon-only" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <form action="<?= url('/products/delete') ?>" method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus produk ini?');">
+                                    <form action="<?= url('/products/delete') ?>" method="POST" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                         <input type="hidden" name="id" value="<?= $product['id'] ?>">
-                                        <button type="submit" class="btn-action btn-action-danger icon-only" title="Hapus">
+                                        <button type="submit" class="btn-action btn-action-danger icon-only" title="Hapus" data-confirm="Yakin ingin menghapus produk ini?">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>

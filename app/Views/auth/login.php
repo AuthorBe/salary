@@ -12,9 +12,27 @@
 
         <!-- Error Alert -->
         <?php if (!empty($error)): ?>
-        <div class="alert alert-danger" role="alert">
-            <i class="bi bi-exclamation-circle-fill"></i>
-            <span><?= e($error) ?></span>
+        <div class="alert alert-danger d-flex align-items-center justify-content-between" role="alert" data-auto-dismiss="5000">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-circle-fill fs-5 flex-shrink-0"></i>
+                <span><?= e($error) ?></span>
+            </div>
+            <button type="button" class="alert-close ms-auto" onclick="this.closest('.alert').remove()" aria-label="Tutup">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <?php endif; ?>
+
+        <!-- Success Alert -->
+        <?php if (!empty($success)): ?>
+        <div class="alert alert-success d-flex align-items-center justify-content-between" role="alert" data-auto-dismiss="3500">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-check-circle-fill fs-5 flex-shrink-0"></i>
+                <span><?= e($success) ?></span>
+            </div>
+            <button type="button" class="alert-close ms-auto" onclick="this.closest('.alert').remove()" aria-label="Tutup">
+                <i class="bi bi-x-lg"></i>
+            </button>
         </div>
         <?php endif; ?>
 
@@ -41,6 +59,7 @@
                         placeholder="Masukkan username..."
                         autocomplete="username"
                         spellcheck="false"
+                        autocapitalize="none"
                         required
                         autofocus
                     >

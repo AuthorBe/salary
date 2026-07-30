@@ -15,6 +15,11 @@
         </h4>
         <p class="text-muted mb-0 fs-7 ms-4 ps-1">Catat hasil kerja karyawan borongan (bungkus/bal) per tanggal</p>
     </div>
+    <div class="page-title-right">
+        <a href="<?= url('/productions/history') ?>" class="btn btn-primary rounded-pill fw-medium shadow-sm d-flex align-items-center gap-2">
+            <i class="bi bi-clock-history"></i> Riwayat Produksi
+        </a>
+    </div>
 </div>
 
 <div class="alert alert-primary bg-primary-subtle border-0 rounded-3 d-flex align-items-center mb-4 p-3 shadow-sm" role="alert">

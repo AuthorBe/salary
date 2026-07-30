@@ -37,16 +37,13 @@ $isEdit = $product !== null;
                 <input type="hidden" name="id" value="<?= $product['id'] ?>">
             <?php endif; ?>
 
-            <div class="row mb-3">
-                <div class="col-md-6">
+            <div class="row mb-4">
+                <div class="col-md-6 mb-3 mb-md-0">
                     <label for="name" class="form-label fw-semibold">Nama Produk <span class="text-danger">*</span></label>
                     <input type="text" class="form-control" id="name" name="name" 
                            value="<?= $isEdit ? e($product['name']) : '' ?>" 
                            placeholder="Misal: Rokok A" required>
                 </div>
-            </div>
-
-            <div class="row mb-4">
                 <div class="col-md-6">
                     <label for="id_kelompok_harga" class="form-label fw-semibold">Kelompok Harga <span class="text-danger">*</span></label>
                     <select class="form-select" id="id_kelompok_harga" name="id_kelompok_harga" required>

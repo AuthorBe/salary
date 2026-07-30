@@ -57,8 +57,7 @@ $salaryType = $isEdit ? $employee['tipe_gaji'] : 'borongan';
                     <select class="form-select" id="tipe_gaji" name="tipe_gaji" onchange="toggleSalaryFields()" required>
                         <option value="borongan" <?= $salaryType === 'borongan' ? 'selected' : '' ?>>Borongan</option>
                         <option value="bulanan" <?= $salaryType === 'bulanan' ? 'selected' : '' ?>>Bulanan</option>
-                        <option value="harian" <?= $salaryType === 'harian' ? 'selected' : '' ?>>Harian</option>
-                    </select>
+                                            </select>
                 </div>
             </div>
 
@@ -68,15 +67,6 @@ $salaryType = $isEdit ? $employee['tipe_gaji'] : 'borongan';
                     <label for="gaji_pokok" class="form-label fw-semibold">Gaji Pokok (Rp)</label>
                     <input type="text" inputmode="numeric" class="form-control input-rupiah" id="gaji_pokok" name="gaji_pokok" 
                            value="<?= $isEdit ? (int)($employee['gaji_pokok'] ?? 0) : '' ?>">
-                </div>
-            </div>
-
-            <!-- Tipe Harian -->
-            <div class="row mb-3 salary-field salary-harian" style="display: <?= $salaryType === 'harian' ? 'flex' : 'none' ?>;">
-                <div class="col-md-6">
-                    <label for="upah_harian" class="form-label fw-semibold">Rate Harian (Rp)</label>
-                    <input type="text" inputmode="numeric" class="form-control input-rupiah" id="upah_harian" name="upah_harian" 
-                           value="<?= $isEdit ? (int)($employee['upah_harian'] ?? 0) : '' ?>">
                 </div>
             </div>
 
@@ -119,8 +109,7 @@ function toggleSalaryFields() {
     
     if (type === 'bulanan') {
         document.querySelector('.salary-bulanan').style.display = 'flex';
-    } else if (type === 'harian') {
-        document.querySelector('.salary-harian').style.display = 'flex';
     }
 }
 </script>
+

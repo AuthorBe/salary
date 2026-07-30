@@ -86,7 +86,7 @@ class Production
      * Simpan produksi untuk 1 karyawan tertentu di tanggal tertentu.
      * $items format: [['id_produk' => int, 'kuantitas' => int, 'kuantitas_bal' => int]]
      */
-    public function saveEmployeeProduction(string $date, int $employeeId, array $items): void
+    public function saveEmployeeProduction(string $date, int $employeeId, array $items, bool $isOvertime = false): void
     {
         $this->db->beginTransaction();
         try {
@@ -96,13 +96,23 @@ class Production
             if ($checkLock->fetchColumn() > 0) {
                 throw new \Exception("Data produksi pada tanggal ini sudah Terkunci karena telah masuk ke proses Penggajian (Payroll).");
             }
-            $stmtIns = $this->db->prepare("
-                INSERT INTO produksi (id_karyawan, date, id_produk, kuantitas, kuantitas_bal)
-                VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE 
-                    kuantitas = kuantitas + VALUES(kuantitas), 
-                    kuantitas_bal = kuantitas_bal + VALUES(kuantitas_bal)
-            ");
+            if ($isOvertime) {
+                $stmtIns = $this->db->prepare("
+                    INSERT INTO produksi (id_karyawan, date, id_produk, lembur_kuantitas, lembur_kuantitas_bal)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE 
+                        lembur_kuantitas = lembur_kuantitas + VALUES(lembur_kuantitas), 
+                        lembur_kuantitas_bal = lembur_kuantitas_bal + VALUES(lembur_kuantitas_bal)
+                ");
+            } else {
+                $stmtIns = $this->db->prepare("
+                    INSERT INTO produksi (id_karyawan, date, id_produk, kuantitas, kuantitas_bal)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE 
+                        kuantitas = kuantitas + VALUES(kuantitas), 
+                        kuantitas_bal = kuantitas_bal + VALUES(kuantitas_bal)
+                ");
+            }
             
             $stmtDelSingle = $this->db->prepare("DELETE FROM produksi WHERE id_karyawan = ? AND date = ? AND id_produk = ?");
 
@@ -141,5 +151,58 @@ class Production
         
         $stmt = $this->db->prepare("DELETE FROM produksi WHERE id_karyawan = ? AND date = ?");
         $stmt->execute([$employeeId, $date]);
+    }
+
+    /**
+     * Ambil riwayat produksi dengan filter rentang tanggal dan opsional karyawan.
+     * Mengembalikan data terkelompok per tanggal dan karyawan.
+     */
+    public function getHistory(string $startDate, string $endDate, int $employeeId = 0): array
+    {
+        $sql = "
+            SELECT p.date, p.id_karyawan, k.name as nama_karyawan, p.id_produk, pr.name as nama_produk, p.kuantitas, p.kuantitas_bal
+            FROM produksi p
+            JOIN karyawan k ON p.id_karyawan = k.id
+            JOIN produk pr ON p.id_produk = pr.id
+            WHERE p.date >= ? AND p.date <= ?
+        ";
+        
+        $params = [$startDate, $endDate];
+        
+        if ($employeeId > 0) {
+            $sql .= " AND p.id_karyawan = ?";
+            $params[] = $employeeId;
+        }
+        
+        $sql .= " ORDER BY p.date DESC, k.name ASC, pr.name ASC";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        
+        $result = [];
+        while ($row = $stmt->fetch()) {
+            $date = $row['date'];
+            $empId = $row['id_karyawan'];
+            
+            $key = $date . '_' . $empId;
+            
+            if (!isset($result[$key])) {
+                $result[$key] = [
+                    'date'          => $date,
+                    'id_karyawan'   => $empId,
+                    'nama_karyawan' => $row['nama_karyawan'],
+                    'products'      => []
+                ];
+            }
+            
+            $result[$key]['products'][] = [
+                'id_produk'     => $row['id_produk'],
+                'nama_produk'   => $row['nama_produk'],
+                'kuantitas'     => (int) $row['kuantitas'],
+                'kuantitas_bal' => (int) $row['kuantitas_bal']
+            ];
+        }
+        
+        return array_values($result);
     }
 }

@@ -7,7 +7,8 @@
     <h2 class="error-title">Sesi Kedaluwarsa</h2>
     <p class="error-message">
         Maaf, sesi Anda telah berakhir atau tidak valid karena alasan keamanan (CSRF Token Mismatch).<br>
-        Silakan kembali ke halaman sebelumnya dan muat ulang halamannya.
+        Ini biasanya terjadi jika halaman dibiarkan terbuka terlalu lama, <strong>atau ada perubahan akses jaringan/URL (misal berganti dari localhost ke Ngrok/IP lokal).</strong><br><br>
+        Silakan kembali ke halaman sebelumnya dan muat ulang (refresh) halamannya.
     </p>
 
     <div class="error-actions">

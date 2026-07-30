@@ -27,6 +27,7 @@ return [
     // ── Fase 2 ──────────────────────────────────────────────────────────────
     'attendance'      => 'Input Kehadiran',
     'production'      => 'Input Produksi',
+    'overtime'        => 'Input Lembur (Dinamis)',
 
     // ── Fase 3 ──────────────────────────────────────────────────────────────
     'debts'           => 'Kasbon & Hutang',

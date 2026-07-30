@@ -169,19 +169,20 @@ class ProductionController
 
         $date       = $_POST['date'] ?? date('Y-m-d');
         $employeeId = (int) ($_POST['id_karyawan'] ?? 0);
+        $source     = $_POST['source'] ?? '';
 
         if ($date && $employeeId > 0) {
             try {
                 $prodModel = new Production();
                 $prodModel->deleteEmployeeProduction($date, $employeeId);
 
-                if (isHtmx()) {
+                if (isHtmx() && $source !== 'history') {
                     echo renderAlert('info', 'Catatan produksi karyawan berhasil dihapus.');
                 } else {
                     $_SESSION['flash_success'] = 'Catatan produksi karyawan berhasil dihapus.';
                 }
             } catch (\Exception $e) {
-                if (isHtmx()) {
+                if (isHtmx() && $source !== 'history') {
                     echo renderAlert('danger', 'Gagal menghapus: ' . e($e->getMessage()), 5000);
                 } else {
                     $_SESSION['flash_error'] = 'Gagal menghapus: ' . e($e->getMessage());
@@ -190,9 +191,44 @@ class ProductionController
         }
 
         if (isHtmx()) {
-            $this->loadForm();
+            if ($source === 'history') {
+                // Return script to trigger htmx reload on history page
+                echo "<script>window.location.reload();</script>";
+            } else {
+                $this->loadForm();
+            }
         } else {
-            redirect('/productions?date=' . urlencode($date));
+            if ($source === 'history') {
+                redirect('/productions/history');
+            } else {
+                redirect('/productions?date=' . urlencode($date));
+            }
         }
+    }
+
+    public function history(): void
+    {
+        checkPermission('production');
+
+        $startDate  = $_GET['start_date'] ?? date('Y-m-01');
+        $endDate    = $_GET['end_date'] ?? date('Y-m-t');
+        $employeeId = (int) ($_GET['id_karyawan'] ?? 0);
+
+        $empModel = new Employee();
+        $employees = array_filter($empModel->getAll(), fn($e) => $e['tipe_gaji'] === 'borongan');
+
+        $prodModel = new Production();
+        $history = $prodModel->getHistory($startDate, $endDate, $employeeId);
+
+        view('productions/history', [
+            'title'       => 'Riwayat Produksi – Salary',
+            'pageTitle'   => 'Riwayat Produksi',
+            'pageKey'     => 'productions',
+            'startDate'   => $startDate,
+            'endDate'     => $endDate,
+            'employeeId'  => $employeeId,
+            'employees'   => $employees,
+            'history'     => $history
+        ]);
     }
 }

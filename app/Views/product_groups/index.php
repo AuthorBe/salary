@@ -60,10 +60,10 @@
                                     <a href="<?= url('/product-groups/form?id=' . $group['id']) ?>" class="btn-action btn-action-primary icon-only" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <form action="<?= url('/product-groups/delete') ?>" method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus kelompok harga ini?');">
+                                    <form action="<?= url('/product-groups/delete') ?>" method="POST" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                         <input type="hidden" name="id" value="<?= $group['id'] ?>">
-                                        <button type="submit" class="btn-action btn-action-danger icon-only" title="Hapus">
+                                        <button type="submit" class="btn-action btn-action-danger icon-only" title="Hapus" data-confirm="Yakin ingin menghapus kelompok harga ini?">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>

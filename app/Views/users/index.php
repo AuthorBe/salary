@@ -89,10 +89,10 @@
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                     <?php if ($user['id'] !== 1 && $user['id'] !== (int)($_SESSION['user_id'] ?? 0)): ?>
-                                    <form action="<?= url('/users/delete') ?>" method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus user ini?');">
+                                    <form action="<?= url('/users/delete') ?>" method="POST" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                         <input type="hidden" name="id" value="<?= $user['id'] ?>">
-                                        <button type="submit" class="btn-action btn-action-danger icon-only" title="Hapus">
+                                        <button type="submit" class="btn-action btn-action-danger icon-only" title="Hapus" data-confirm="Yakin ingin menghapus user ini?">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>

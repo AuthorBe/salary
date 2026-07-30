@@ -60,15 +60,11 @@
                                 <?= e($emp['name']) ?>
                                 <?php if ($emp['tipe_gaji'] === 'bulanan'): ?>
                                     <div class="small text-muted fw-normal">Gaji Pokok: <?= formatRupiah((int)$emp['gaji_pokok']) ?></div>
-                                <?php elseif ($emp['tipe_gaji'] === 'harian'): ?>
-                                    <div class="small text-muted fw-normal">Rate Harian: <?= formatRupiah((int)$emp['upah_harian']) ?></div>
                                 <?php endif; ?>
                             </td>
                             <td>
                                 <?php if ($emp['tipe_gaji'] === 'borongan'): ?>
                                     <span class="badge bg-warning text-dark rounded-pill fw-normal">Borongan</span>
-                                <?php elseif ($emp['tipe_gaji'] === 'harian'): ?>
-                                    <span class="badge bg-info text-dark rounded-pill fw-normal">Harian</span>
                                 <?php else: ?>
                                     <span class="badge bg-primary text-white rounded-pill fw-normal">Bulanan</span>
                                 <?php endif; ?>
@@ -87,10 +83,10 @@
                                     <a href="<?= url('/employees/form?id=' . $emp['id']) ?>" class="btn-action btn-action-primary icon-only" title="Edit">
                                         <i class="bi bi-pencil"></i>
                                     </a>
-                                    <form action="<?= url('/employees/delete') ?>" method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus karyawan ini?');">
+                                    <form action="<?= url('/employees/delete') ?>" method="POST" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                                         <input type="hidden" name="id" value="<?= $emp['id'] ?>">
-                                        <button type="submit" class="btn-action btn-action-danger icon-only" title="Hapus">
+                                        <button type="submit" class="btn-action btn-action-danger icon-only" title="Hapus" data-confirm="Yakin ingin menghapus karyawan ini?">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
@@ -103,3 +99,4 @@
         </table>
     </div>
 </div>
+

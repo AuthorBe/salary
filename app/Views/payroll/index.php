@@ -58,7 +58,10 @@
                     <tbody>
                         <?php foreach ($payrolls as $pr): ?>
                             <tr>
-                                <td class="ps-3 fw-semibold text-muted">#<?= $pr['id'] ?></td>
+                                <td class="ps-3 fw-semibold text-muted">
+                                    <div class="text-dark fw-bold"><?= e($pr['name'] ?? 'Run #' . $pr['id']) ?></div>
+                                    <small>#<?= $pr['id'] ?></small>
+                                </td>
                                 <td>
                                     <div class="fw-bold text-dark">
                                         <?= formatTanggal($pr['periode_awal']) ?> - <?= formatTanggal($pr['periode_akhir']) ?>

@@ -89,11 +89,11 @@ class Role
      */
     public function create(string $name): int
     {
-        // Cek duplikat nama
-        $stmt = $this->db->prepare('SELECT id FROM peran WHERE name = ? LIMIT 1');
+        // Cek duplikat nama (case-insensitive)
+        $stmt = $this->db->prepare('SELECT id FROM peran WHERE LOWER(name) = LOWER(?) LIMIT 1');
         $stmt->execute([trim($name)]);
         if ($stmt->fetch()) {
-            throw new \Exception("Role dengan nama '{$name}' sudah ada.");
+            throw new \Exception("Gagal: Role dengan nama '{$name}' sudah ada.");
         }
 
         $stmt = $this->db->prepare('INSERT INTO peran (name) VALUES (?)');
@@ -108,11 +108,11 @@ class Role
      */
     public function update(int $id, string $name): void
     {
-        // Cek duplikat nama (kecuali role itu sendiri)
-        $stmt = $this->db->prepare('SELECT id FROM peran WHERE name = ? AND id != ? LIMIT 1');
+        // Cek duplikat nama (kecuali role itu sendiri, case-insensitive)
+        $stmt = $this->db->prepare('SELECT id FROM peran WHERE LOWER(name) = LOWER(?) AND id != ? LIMIT 1');
         $stmt->execute([trim($name), $id]);
         if ($stmt->fetch()) {
-            throw new \Exception("Nama role '{$name}' sudah digunakan role lain.");
+            throw new \Exception("Gagal: Nama role '{$name}' sudah digunakan role lain.");
         }
 
         $stmt = $this->db->prepare('UPDATE peran SET name = ? WHERE id = ?');

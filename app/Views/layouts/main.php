@@ -68,63 +68,115 @@
                 <i class="bi bi-grid-1x2-fill" style="color: #3b82f6;"></i>
                 <span>Dashboard</span>
             </a>
+            <a href="<?= url('/rekap') ?>"
+               class="nav-item <?= ($pageKey ?? '') === 'rekap' ? 'active' : '' ?>">
+                <i class="bi bi-clipboard2-data-fill" style="color: #f59e0b;"></i>
+                <span>Rekapitulasi</span>
+            </a>
         </div>
 
         <!-- Data Master (Fase 1) -->
+        <?php if (hasPermission('employees') || hasPermission('product_groups') || hasPermission('products')): ?>
         <div class="nav-section">
             <span class="nav-section-label">Data Master</span>
+            <?php if (hasPermission('employees')): ?>
             <a href="<?= url('/employees') ?>" class="nav-item <?= ($pageKey ?? '') === 'employees' ? 'active' : '' ?>">
                 <i class="bi bi-people-fill" style="color: #10b981;"></i>
                 <span>Karyawan</span>
             </a>
+            <?php endif; ?>
+            <?php if (hasPermission('product_groups')): ?>
             <a href="<?= url('/product-groups') ?>" class="nav-item <?= ($pageKey ?? '') === 'product-groups' ? 'active' : '' ?>">
                 <i class="bi bi-tags-fill" style="color: #8b5cf6;"></i>
                 <span>Kelompok Harga</span>
             </a>
+            <?php endif; ?>
+            <?php if (hasPermission('products')): ?>
             <a href="<?= url('/products') ?>" class="nav-item <?= ($pageKey ?? '') === 'products' ? 'active' : '' ?>">
                 <i class="bi bi-box-seam-fill" style="color: #ec4899;"></i>
                 <span>Produk</span>
             </a>
+            <?php endif; ?>
         </div>
+        <?php endif; ?>
 
         <!-- Operasional (Fase 2-3) -->
+        <?php if (hasPermission('attendance') || hasPermission('production') || hasPermission('debts')): ?>
         <div class="nav-section">
             <span class="nav-section-label">Operasional</span>
-            <a href="<?= url('/attendances') ?>" class="nav-item <?= ($pageKey ?? '') === 'attendances' ? 'active' : '' ?>">
+            <?php if (hasPermission('attendance')): ?>
+            <a href="<?= url('/attendances') ?>" class="nav-item <?= ($pageKey ?? '') === 'attendance' ? 'active' : '' ?>">
                 <i class="bi bi-calendar-check-fill" style="color: #f59e0b;"></i>
                 <span>Kehadiran</span>
             </a>
-            <a href="<?= url('/productions') ?>" class="nav-item <?= ($pageKey ?? '') === 'productions' ? 'active' : '' ?>">
+            <?php endif; ?>
+            <?php if (hasPermission('production')): ?>
+            <a href="<?= url('/productions') ?>" class="nav-item <?= ($pageKey ?? '') === 'production' ? 'active' : '' ?>">
                 <i class="bi bi-bar-chart-steps" style="color: #0ea5e9;"></i>
                 <span>Produksi</span>
             </a>
+            <?php endif; ?>
+            <?php if (hasPermission('overtime')): ?>
+            <a href="<?= url('/overtime') ?>" class="nav-item <?= ($pageKey ?? '') === 'overtime' ? 'active' : '' ?>">
+                <i class="bi bi-clock-history" style="color: #8b5cf6;"></i>
+                <span>Input Lembur</span>
+            </a>
+            <?php endif; ?>
+            <?php if (hasPermission('debts')): ?>
             <a href="<?= url('/debts') ?>" class="nav-item <?= ($pageKey ?? '') === 'debts' ? 'active' : '' ?>">
                 <i class="bi bi-credit-card-fill" style="color: #ef4444;"></i>
                 <span>Kasbon</span>
             </a>
+            <?php endif; ?>
         </div>
+        <?php endif; ?>
 
         <!-- Payroll (Fase 4-5) -->
+        <?php if (hasPermission('payroll') || hasPermission('payroll_history') || hasPermission('reports_owner')): ?>
         <div class="nav-section">
             <span class="nav-section-label">Payroll</span>
+            
+            <?php if (hasPermission('payroll')): ?>
             <a href="<?= url('/payroll') ?>" class="nav-item <?= ($pageKey ?? '') === 'payroll' ? 'active' : '' ?>">
                 <i class="bi bi-calendar-week-fill" style="color: #6366f1;"></i>
                 <span>Data Payroll</span>
             </a>
+            <?php endif; ?>
+            
+            <?php if (hasPermission('payroll_history')): ?>
+            <a href="<?= url('/history') ?>" class="nav-item <?= ($pageKey ?? '') === 'payroll_history' ? 'active' : '' ?>">
+                <i class="bi bi-clock-history" style="color: #64748b;"></i>
+                <span>Riwayat Gaji</span>
+            </a>
+            <?php endif; ?>
+            
+            <?php if (hasPermission('reports_owner')): ?>
+            <a href="<?= url('/reports') ?>" class="nav-item <?= ($pageKey ?? '') === 'reports_owner' ? 'active' : '' ?>">
+                <i class="bi bi-graph-up-arrow" style="color: #eab308;"></i>
+                <span>Laporan Owner</span>
+            </a>
+            <?php endif; ?>
         </div>
+        <?php endif; ?>
 
         <!-- Sistem (Fase 1) -->
+        <?php if (hasPermission('users_roles') || hasPermission('app_settings')): ?>
         <div class="nav-section">
             <span class="nav-section-label">Sistem</span>
+            <?php if (hasPermission('users_roles')): ?>
             <a href="<?= url('/users') ?>" class="nav-item <?= ($pageKey ?? '') === 'users_roles' ? 'active' : '' ?>">
                 <i class="bi bi-person-badge-fill" style="color: #06b6d4;"></i>
                 <span>User & Role</span>
             </a>
+            <?php endif; ?>
+            <?php if (hasPermission('app_settings')): ?>
             <a href="<?= url('/settings') ?>" class="nav-item <?= ($pageKey ?? '') === 'app_settings' ? 'active' : '' ?>">
                 <i class="bi bi-gear-fill" style="color: #94a3b8;"></i>
                 <span>Setelan Aplikasi</span>
             </a>
+            <?php endif; ?>
         </div>
+        <?php endif; ?>
 
     </nav>
 
@@ -166,7 +218,14 @@
 
     <!-- Page title & Subtitle -->
     <div class="header-title-wrapper">
-        <h1 class="header-title-text"><?= e($pageTitle ?? 'Dashboard') ?></h1>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="header-title-text mb-0"><?= e($pageTitle ?? 'Dashboard') ?></h1>
+            <?php if (isset($pageGuide) && !empty($pageGuide)): ?>
+                <button type="button" class="btn btn-link text-primary p-0 m-0" data-bs-toggle="modal" data-bs-target="#guideModal" title="Panduan Halaman">
+                    <i class="bi bi-info-circle-fill fs-5"></i>
+                </button>
+            <?php endif; ?>
+        </div>
         <span class="header-subtitle"><?= e(appSetting('company_name', 'Bintang Harapan')) ?> - Sistem Manajemen Penggajian</span>
     </div>
 
@@ -233,6 +292,26 @@
 
 <!-- App JS -->
 <script src="<?= assetUrl('js/app.js') ?>"></script>
+
+<?php if (isset($pageGuide) && !empty($pageGuide)): ?>
+<!-- Modal Panduan Halaman -->
+<div class="modal fade" id="guideModal" tabindex="-1" aria-labelledby="guideModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow" style="border-radius: 1rem;">
+      <div class="modal-header bg-primary text-white" style="border-radius: 1rem 1rem 0 0;">
+        <h5 class="modal-title fw-bold" id="guideModalLabel"><i class="bi bi-lightbulb me-2"></i>Panduan Penggunaan</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4" style="font-size: 0.95rem; line-height: 1.6;">
+        <?= $pageGuide ?>
+      </div>
+      <div class="modal-footer border-0 pt-0 pb-4 px-4 justify-content-center">
+        <button type="button" class="btn btn-primary rounded-pill px-5 shadow-sm" data-bs-dismiss="modal">Paham, Terima Kasih!</button>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 </body>
 </html>

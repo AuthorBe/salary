@@ -27,10 +27,13 @@ class AuthController
         // Ambil flash message error dari session (jika ada) lalu hapus
         $error = $_SESSION['login_error'] ?? null;
         unset($_SESSION['login_error']);
+        
+        $success = $_GET['logged_out'] ?? null ? 'Anda telah berhasil logout.' : null;
 
         view('auth/login', [
-            'title' => 'Login – Salary',
-            'error' => $error,
+            'title'   => 'Login – Salary',
+            'error'   => $error,
+            'success' => $success,
         ], 'auth');
     }
 
@@ -47,8 +50,15 @@ class AuthController
      */
     public function processLogin(): void
     {
-        // Step 1: Validasi CSRF
-        validateCsrfToken();
+        // Step 1: Validasi CSRF Khusus Login
+        // Jika gagal, kembalikan ke halaman login dengan pesan error (bukan halaman 419)
+        $submittedCsrf = $_POST['csrf_token'] ?? '';
+        $storedCsrf    = $_SESSION['csrf_token'] ?? '';
+        if (!$storedCsrf || !hash_equals($storedCsrf, $submittedCsrf)) {
+            unset($_SESSION['csrf_token']);
+            $_SESSION['login_error'] = 'Sesi login telah berakhir/berubah jaringan. Silakan coba login kembali.';
+            redirect('/login');
+        }
 
         $username = trim($_POST['nama_pengguna'] ?? '');
         $password = $_POST['password'] ?? '';
@@ -117,6 +127,6 @@ class AuthController
             session_destroy();
         }
 
-        redirect('/login');
+        redirect('/login?logged_out=1');
     }
 }

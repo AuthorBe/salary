@@ -93,6 +93,11 @@ class UserController
             redirect('/users/form' . ($id > 0 ? '?id='.$id : ''));
         }
 
+        if ($userModel->nameExists($name, $id)) {
+            $_SESSION['flash_error'] = "Gagal: Nama user '{$name}' sudah terdaftar. Silakan gunakan nama lain.";
+            redirect('/users/form' . ($id > 0 ? '?id='.$id : ''));
+        }
+
         if ($id > 0) {
             // Edit mode (password opsional)
             $userModel->update($id, $name, $username, $roleId, $isActive, $password);

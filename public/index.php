@@ -44,6 +44,11 @@ if (session_status() === PHP_SESSION_NONE) {
 // Load konfigurasi database (daftarkan fungsi getDB())
 require_once APP_ROOT . '/config/database.php';
 
+// Load Composer Autoloader
+if (file_exists(APP_ROOT . '/vendor/autoload.php')) {
+    require_once APP_ROOT . '/vendor/autoload.php';
+}
+
 // ── 2. Autoloader ─────────────────────────────────────────────────────────
 // Konversi App\Controllers\AuthController → /app/Controllers/AuthController.php
 spl_autoload_register(function (string $class): void {
@@ -58,6 +63,7 @@ spl_autoload_register(function (string $class): void {
 
 // ── 3. Global Helpers ─────────────────────────────────────────────────────
 require_once APP_ROOT . '/app/Helpers/helpers.php';
+require_once APP_ROOT . '/app/Helpers/pdf_helper.php';
 
 // Set timezone dinamis dari setelan aplikasi (fallback: Asia/Jakarta)
 date_default_timezone_set(appSetting('timezone', 'Asia/Jakarta'));
@@ -151,9 +157,14 @@ $routes = [
 
     // Produksi (Productions)
     'GET /productions'                  => [\App\Controllers\ProductionController::class, 'index'],
+    'GET /productions/history'          => [\App\Controllers\ProductionController::class, 'history'],
     'GET /productions/form'             => [\App\Controllers\ProductionController::class, 'loadForm'],
     'POST /productions/store'           => [\App\Controllers\ProductionController::class, 'store'],
     'POST /productions/delete-employee' => [\App\Controllers\ProductionController::class, 'destroyEmployee'],
+
+    // Lembur Dinamis
+    'GET /overtime'              => [\App\Controllers\OvertimeController::class, 'index'],
+    'POST /overtime/store'       => [\App\Controllers\OvertimeController::class, 'store'],
 
     // ── Phase 3: Kasbon & Hutang Karyawan ───────────────────────────────────
     'GET /debts'                        => [\App\Controllers\DebtController::class, 'index'],
@@ -170,6 +181,25 @@ $routes = [
     'POST /payroll/update-item'         => [\App\Controllers\PayrollController::class, 'updateItem'],
     'POST /payroll/approve'             => [\App\Controllers\PayrollController::class, 'approve'],
     'POST /payroll/regenerate'          => [\App\Controllers\PayrollController::class, 'regenerate'],
+    'GET /payroll/export'               => [\App\Controllers\PayrollController::class, 'exportPdf'],
+
+    // ── Phase 5: Riwayat, Laporan & Slip Gaji ───────────────────────────────
+    // History Gaji
+    'GET /history'          => [\App\Controllers\HistoryController::class, 'index'],
+    'GET /history/slip'         => [\App\Controllers\HistoryController::class, 'downloadSlip'],
+    'POST /payroll/export-slips'        => [\App\Controllers\PayrollController::class, 'exportSlipsMass'],
+
+    // ── Phase 5: Laporan & Rekapitulasi ───────────────────────────────────────
+    // Laporan Finansial Owner
+    'GET /reports'                      => [\App\Controllers\ReportController::class, 'index'],
+    'GET /reports/export'               => [\App\Controllers\ReportController::class, 'exportPdf'],
+
+    // Gerbang Rekap & Laporan Operasional
+    'GET /rekap'                        => [\App\Controllers\RekapController::class, 'index'],
+    'GET /rekap/attendance'             => [\App\Controllers\RekapController::class, 'attendance'],
+    'GET /rekap/production'             => [\App\Controllers\RekapController::class, 'production'],
+    'GET /rekap/overtime'               => [\App\Controllers\RekapController::class, 'overtime'],
+    'GET /rekap/employee'               => [\App\Controllers\RekapController::class, 'employee'],
 ];
 
 $routeKey = $method . ' ' . $uri;

@@ -53,4 +53,15 @@ class Product
         $stmt = $db->prepare("DELETE FROM produk WHERE id = ?");
         return $stmt->execute([$id]);
     }
+
+    /**
+     * Memeriksa apakah nama produk sudah ada di database (case-insensitive).
+     */
+    public function nameExists(string $name, int $excludeId = 0): bool
+    {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT COUNT(*) FROM produk WHERE LOWER(name) = LOWER(?) AND id != ?");
+        $stmt->execute([$name, $excludeId]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
 }

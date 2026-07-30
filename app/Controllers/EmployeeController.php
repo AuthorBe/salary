@@ -59,16 +59,21 @@ class EmployeeController
             
             // Komponen spesifik
             'gaji_pokok' => parseRupiah($_POST['gaji_pokok'] ?? ''),
-            'upah_harian' => parseRupiah($_POST['upah_harian'] ?? ''),
         ];
 
-        if ($data['name'] === '' || !in_array($data['tipe_gaji'], ['borongan', 'bulanan', 'harian'])) {
+        if ($data['name'] === '' || !in_array($data['tipe_gaji'], ['borongan', 'bulanan'])) {
             $_SESSION['flash_error'] = 'Nama dan Tipe Gaji wajib diisi dengan benar.';
             redirect('/employees/form' . ($id > 0 ? '?id='.$id : ''));
         }
 
         $model = new Employee();
         
+        if ($model->nameExists($data['name'], $id)) {
+            $_SESSION['flash_error'] = "Gagal: Nama karyawan '{$data['name']}' sudah digunakan. Silakan gunakan nama lain.";
+            redirect('/employees/form' . ($id > 0 ? '?id='.$id : ''));
+            return;
+        }
+
         try {
             if ($id > 0) {
                 $model->update($id, $data);

@@ -30,28 +30,41 @@ foreach ($items as $it) {
 ?>
 
 <div class="page-header mb-4 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
-    <div>
-        <h5 class="page-header-title d-flex align-items-center gap-2 text-dark fw-semibold mb-0" style="font-size: 1.05rem;">
-            <i class="bi fs-5 bi-file-earmark-text text-primary"></i> Periode: <strong class="text-dark"><?= formatTanggal($run['periode_awal']) ?> - <?= formatTanggal($run['periode_akhir']) ?></strong>
-            <span class="mx-2 text-muted">|</span>
-            Tipe: <strong class="text-dark"><?= $run['type'] === 'weekly' ? 'Mingguan' : 'Bulanan' ?></strong>
+    <div class="w-100">
+        <h5 class="page-header-title text-dark fw-bold mb-2" style="font-size: 1.15rem;">
+            <i class="bi bi-file-earmark-text text-primary me-1"></i> 
+            Preview Payroll <?= $run['type'] === 'weekly' ? 'Mingguan' : 'Bulanan' ?>
         </h5>
+        <div class="text-muted small d-flex flex-column flex-sm-row gap-1 gap-sm-2 align-items-start align-items-sm-center">
+            <span><i class="bi bi-calendar-event me-1"></i> <?= formatTanggal($run['periode_awal']) ?> - <?= formatTanggal($run['periode_akhir']) ?></span>
+            <span class="d-none d-sm-inline text-muted">|</span>
+            <span class="badge bg-light text-dark border fw-normal"><i class="bi bi-tag me-1"></i> Tipe: <?= $run['type'] === 'weekly' ? 'Mingguan' : 'Bulanan' ?></span>
+        </div>
     </div>
-    <div class="d-flex flex-wrap gap-2">
-        <a href="<?= url('/payroll') ?>" class="btn btn-outline-secondary rounded-pill px-4">
+    <div class="d-flex flex-wrap gap-2 w-100 justify-content-start justify-content-sm-end">
+        <a href="<?= url('/payroll') ?>" class="btn btn-outline-secondary rounded-pill px-3 flex-sm-grow-0 flex-grow-1">
             <i class="bi bi-arrow-left me-1"></i> Kembali
         </a>
+        <?php if ($isDraft): ?>
+            <button type="button" class="btn btn-secondary rounded-pill px-3 shadow-sm flex-sm-grow-0 flex-grow-1" disabled title="Approve payroll terlebih dahulu untuk mengunduh rekap">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Rekap
+            </button>
+        <?php else: ?>
+            <a href="<?= url('/payroll/export?id=' . $run['id']) ?>" class="btn btn-danger rounded-pill px-3 shadow-sm flex-sm-grow-0 flex-grow-1" target="_blank">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Rekap
+            </a>
+        <?php endif; ?>
         
         <?php if ($isDraft): ?>
-            <form action="<?= url('/payroll/approve') ?>" method="POST">
+            <form action="<?= url('/payroll/approve') ?>" method="POST" class="flex-sm-grow-0 flex-grow-1 m-0">
                 <?= csrfField() ?>
                 <input type="hidden" name="id" value="<?= $run['id'] ?>">
-                <button type="submit" class="btn btn-success rounded-pill px-4 shadow-sm" data-confirm="Apakah Anda yakin ingin menyetujui payroll ini? Setelah disetujui, data akan dikunci dan potongan hutang diterapkan.">
-                    <i class="bi bi-check-circle me-1"></i> Setujui (Approve)
+                <button type="submit" class="btn btn-success rounded-pill px-3 shadow-sm w-100" data-confirm="Apakah Anda yakin ingin menyetujui payroll ini? Setelah disetujui, data akan dikunci dan potongan hutang diterapkan.">
+                    <i class="bi bi-check-circle me-1"></i> Approve
                 </button>
             </form>
         <?php else: ?>
-            <button class="btn btn-light text-success border border-success-subtle rounded-pill px-4" disabled>
+            <button class="btn btn-light text-success border border-success-subtle rounded-pill px-3 flex-sm-grow-0 flex-grow-1" disabled>
                 <i class="bi bi-check-circle-fill me-1"></i> Approved
             </button>
             
@@ -60,11 +73,11 @@ foreach ($items as $it) {
                 $now = time();
                 if (($now - $approvedTime) <= 86400): // Within 24 hours
             ?>
-                <form action="<?= url('/payroll/regenerate') ?>" method="POST">
+                <form action="<?= url('/payroll/regenerate') ?>" method="POST" class="flex-sm-grow-0 flex-grow-1 m-0">
                     <?= csrfField() ?>
                     <input type="hidden" name="id" value="<?= $run['id'] ?>">
-                    <button type="submit" class="btn btn-outline-danger rounded-pill px-4 shadow-sm" data-confirm="BAHAYA: Anda akan membatalkan status Approve, melepaskan kunci data absensi/produksi, dan mengembalikan saldo hutang karyawan. Lanjutkan?" title="Batal & Generate Ulang (Tersedia dalam 24 jam setelah approve)">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Batal & Gen. Ulang
+                    <button type="submit" class="btn btn-outline-danger rounded-pill px-3 shadow-sm w-100" data-confirm="BAHAYA: Anda akan membatalkan status Approve, melepaskan kunci data absensi/produksi, dan mengembalikan saldo hutang karyawan. Lanjutkan?" title="Batal & Generate Ulang (Tersedia dalam 24 jam setelah approve)">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Batal & Ulang
                     </button>
                 </form>
             <?php endif; ?>
@@ -133,7 +146,7 @@ foreach ($items as $it) {
                 </thead>
                 <tbody>
                     <?php $no = 1; foreach ($items as $it): 
-                        $pendapatanAwal = $it['gaji_pokok'] + $it['total_uang_kehadiran'] + $it['total_upah_produksi'] + $it['tunjangan_bulanan'];
+                        $pendapatanAwal = $it['gaji_pokok'] + $it['total_uang_kehadiran'] + $it['total_upah_produksi'] + ($it['total_upah_lembur'] ?? 0) + $it['tunjangan_bulanan'];
                         $penyesuaian = $it['tunjangan_lain'] + $it['nominal_pembulatan'] - $it['potongan_lain'];
                     ?>
                         <tr>
@@ -146,6 +159,9 @@ foreach ($items as $it) {
                                 <div class="fw-semibold text-dark"><?= formatRupiah((int)$pendapatanAwal) ?></div>
                                 <?php if ($it['tunjangan_bulanan'] > 0): ?>
                                     <small class="text-primary d-block" style="font-size: 0.7rem;">+ Uang Bulanan</small>
+                                <?php endif; ?>
+                                <?php if (($it['total_upah_lembur'] ?? 0) > 0): ?>
+                                    <small class="text-warning d-block fw-bold" style="font-size: 0.7rem;">+ Lembur <?= formatRupiah((int)$it['total_upah_lembur']) ?></small>
                                 <?php endif; ?>
                             </td>
                             <td class="text-end">

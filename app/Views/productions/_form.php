@@ -27,7 +27,7 @@ foreach ($products as $p) {
 
     <div class="row g-4">
         <!-- ── Form Express Input Per-Karyawan ────────────────────────────── -->
-        <div class="col-lg-6">
+        <div class="col-lg-8 mx-auto">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white border-bottom pt-3 pb-3">
                     <h5 class="card-title fw-bold text-dark mb-0 d-flex align-items-center">
@@ -108,93 +108,6 @@ foreach ($products as $p) {
                             </button>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Tabel Ringkasan Live Produksi Hari Ini ───────────────────────── -->
-        <div class="col-lg-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white border-bottom pt-3 pb-3 d-flex justify-content-between align-items-center">
-                    <h5 class="card-title fw-bold text-dark mb-0 d-flex align-items-center">
-                        <i class="bi bi-list-check text-success me-2"></i>
-                        Ringkasan Terisi (<?= count($productions) ?> Karyawan)
-                    </h5>
-                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3">
-                        <?= e(formatTanggal($date)) ?>
-                    </span>
-                </div>
-                <div class="card-body p-0">
-                    <?php if (empty($productions)): ?>
-                        <div class="p-4 text-center text-muted">
-                            <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
-                            <div>Belum ada data produksi terisi pada tanggal ini.</div>
-                            <small>Gunakan form di samping untuk menginput produksi karyawan.</small>
-                        </div>
-                    <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th scope="col" class="ps-3 fw-semibold">Nama Karyawan</th>
-                                        <th scope="col" class="fw-semibold">Rincian Produk Hasil</th>
-                                        <th scope="col" class="text-end pe-3 fw-semibold">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php 
-                                    // Peta nama karyawan untuk render cepat
-                                    $empMap = [];
-                                    foreach ($employees as $e) {
-                                        $empMap[$e['id']] = $e['name'];
-                                    }
-                                    ?>
-                                    <?php foreach ($productions as $empId => $userProds): ?>
-                                        <tr>
-                                            <td class="ps-3 fw-medium text-dark">
-                                                <?= e($empMap[$empId] ?? "Karyawan #{$empId}") ?>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex flex-wrap gap-2">
-                                                    <?php foreach ($userProds as $prodId => $pData): ?>
-                                                        <?php 
-                                                        $pName = $productMap[$prodId]['name'] ?? "Produk #{$prodId}";
-                                                        $qty = $pData['kuantitas'] ?? 0;
-                                                        $bal = $pData['kuantitas_bal'] ?? 0;
-                                                        ?>
-                                                        <div class="border rounded px-2 py-1 bg-light d-inline-flex flex-column lh-sm">
-                                                            <span class="text-secondary" style="font-size: 0.7rem;"><?= e($pName) ?></span>
-                                                            <strong class="text-dark" style="font-size: 0.85rem;">
-                                                                <?php if ($qty > 0): ?><?= number_format($qty, 0, ',', '.') ?> Bks<?php endif; ?>
-                                                                <?php if ($qty > 0 && $bal > 0): ?> &bull; <?php endif; ?>
-                                                                <?php if ($bal > 0): ?><?= number_format($bal, 0, ',', '.') ?> Bal<?php endif; ?>
-                                                            </strong>
-                                                        </div>
-                                                    <?php endforeach; ?>
-                                                </div>
-                                            </td>
-                                            <td class="text-end pe-3">
-                                                <form method="POST"
-                                                      action="<?= url('/productions/delete-employee') ?>"
-                                                      hx-post="<?= url('/productions/delete-employee') ?>" 
-                                                      hx-target="#production-form-container" 
-                                                      hx-swap="innerHTML"
-                                                      hx-confirm="Yakin ingin menghapus catatan produksi <?= e($empMap[$empId] ?? 'karyawan ini') ?> di tanggal ini?"
-                                                      class="d-inline">
-                                                    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-                                                    <input type="hidden" name="date" value="<?= e($date) ?>">
-                                                    <input type="hidden" name="id_karyawan" value="<?= $empId ?>">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger border-0 rounded-circle" title="Hapus catatan">
-                                                        <i class="bi bi-trash-fill"></i>
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php endif; ?>
                 </div>
             </div>
         </div>
