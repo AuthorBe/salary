@@ -1,0 +1,40 @@
+# public/.htaccess
+# Front Controller pattern: semua request diarahkan ke index.php
+# kecuali file/direktori yang memang ada (assets, dll).
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Jika request diawali dengan salary/assets/ atau payrun/assets/, kembalikan ke assets/
+    RewriteRule ^salary/assets/(.*)$ assets/$1 [L]
+    RewriteRule ^payrun/assets/(.*)$ assets/$1 [L]
+
+    # Kalau file/direktori ada di filesystem, serve langsung (assets, dll)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Semua request lain ke index.php (front controller)
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Security: prevent directory listing
+Options -Indexes
+
+<IfModule mod_headers.c>
+    # 1. Jangan pernah cache file PHP, HTML, dan Service Worker
+    <FilesMatch "\.(php|html)$|sw\.js$">
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+        Header set Pragma "no-cache"
+    </FilesMatch>
+
+    # 2. Cache agresif untuk aset statis (karena kita pakai ?v= untuk cache-busting)
+    <FilesMatch "\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$">
+        # Abaikan sw.js dari aturan ini
+        <If "%{REQUEST_URI} !~ m#/sw\.js$#">
+            Header set Cache-Control "public, max-age=31536000, immutable"
+        </If>
+    </FilesMatch>
+
+    # Security: hide PHP version
+    Header unset X-Powered-By
+</IfModule>
