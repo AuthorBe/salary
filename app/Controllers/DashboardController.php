@@ -93,9 +93,29 @@ class DashboardController
         $allProducts = $productModel->getAllWithGroup();
         $totalProducts = count($allProducts);
 
-        // 5. Data Top Karyawan (Produksi terbanyak minggu ini)
-        $monday = date('Y-m-d', strtotime('monday this week'));
-        $sunday = date('Y-m-d', strtotime('sunday this week'));
+        $settingModel = new \App\Models\AppSetting();
+        $weekStartDay = (int) $settingModel->get('week_start_day', '1');
+        $weekEndDay = (int) $settingModel->get('week_end_day', '0');
+        $map = [0 => 'sunday', 1 => 'monday', 2 => 'tuesday', 3 => 'wednesday', 4 => 'thursday', 5 => 'friday', 6 => 'saturday'];
+        
+        $endDayName = $map[$weekEndDay];
+        $startDayName = $map[$weekStartDay];
+
+        $todayStr = date('l');
+        $endThisWeek = new \DateTime();
+        if (strtolower($todayStr) !== $endDayName) {
+            $endThisWeek->modify("next " . $endDayName);
+        }
+        
+        $startThisWeek = clone $endThisWeek;
+        if ($weekStartDay === $weekEndDay) {
+            $startThisWeek->modify('-6 days');
+        } else {
+            $startThisWeek->modify("last " . $startDayName);
+        }
+        
+        $startOfWeek = $startThisWeek->format('Y-m-d');
+        $endOfWeek = $endThisWeek->format('Y-m-d');
         $db = getDB();
         
         $topEmployees = [];
@@ -109,7 +129,7 @@ class DashboardController
                 ORDER BY total_bungkus DESC
                 LIMIT 5
             ");
-            if ($stmt->execute([$monday, $sunday])) {
+            if ($stmt->execute([$startOfWeek, $endOfWeek])) {
                 $topEmployees = $stmt->fetchAll();
             }
         } catch (\Exception $e) {}

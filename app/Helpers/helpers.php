@@ -452,3 +452,38 @@ function appSetting(string $key, string $default = ''): string
 
     return $cache[$key];
 }
+
+/**
+ * Render opsi dropdown karyawan dengan pengelompokan (optgroup) berdasarkan tipe gaji.
+ *
+ * @param array $employees Daftar karyawan dari database.
+ * @param int|string|null $selectedId ID karyawan yang sedang terpilih.
+ * @return string HTML opsi `<option>` dan `<optgroup>`.
+ */
+function renderEmployeeOptions(array $employees, $selectedId = null): string
+{
+    $html = '';
+    $currentType = '';
+    
+    foreach ($employees as $e) {
+        $tipeGaji = $e['tipe_gaji'] ?? 'unknown';
+        
+        if ($currentType !== $tipeGaji) {
+            if ($currentType !== '') {
+                $html .= '</optgroup>';
+            }
+            $currentType = $tipeGaji;
+            $html .= '<optgroup label="Karyawan ' . ucfirst($currentType) . '">';
+        }
+        
+        $selected = ($selectedId !== null && $selectedId == $e['id']) ? ' selected' : '';
+        $html .= '<option value="' . e($e['id']) . '"' . $selected . '>' . e($e['name']) . '</option>';
+    }
+    
+    if ($currentType !== '') {
+        $html .= '</optgroup>';
+    }
+    
+    return $html;
+}
+

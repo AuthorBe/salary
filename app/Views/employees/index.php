@@ -5,6 +5,9 @@
  */
 ?>
 
+<form action="<?= url('/employees/form') ?>" method="POST" id="bulkActionForm">
+    <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
+
 <div class="page-title-box d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
     <div class="page-title-left">
         <h2 class="h4 mb-1 fw-bold d-flex align-items-center">
@@ -12,9 +15,12 @@
         </h2>
         <p class="text-muted mb-0 fs-7 ms-4 ps-1">Kelola seluruh data karyawan dan informasi kepegawaian secara terpusat</p>
     </div>
-    <div class="page-title-right">
-        <a href="<?= url('/employees/form') ?>" class="btn btn-primary d-inline-flex align-items-center">
-            <i class="bi bi-person-plus-fill me-2"></i> Tambah Karyawan
+    <div class="page-title-right d-flex flex-column flex-sm-row gap-2 mt-3 mt-sm-0 align-self-stretch align-self-sm-auto">
+        <button type="submit" class="btn btn-warning d-inline-flex justify-content-center align-items-center" id="btnBulkEdit" disabled>
+            <i class="bi bi-pencil-square me-2"></i> Edit Terpilih (<span id="countSelected">0</span>)
+        </button>
+        <a href="<?= url('/employees/form') ?>" class="btn btn-primary d-inline-flex justify-content-center align-items-center">
+            <i class="bi bi-plus-lg me-2"></i> Tambah Karyawan
         </a>
     </div>
 </div>
@@ -40,7 +46,10 @@
         <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
                 <tr>
-                    <th scope="col" class="ps-4">NAMA KARYAWAN</th>
+                    <th scope="col" style="width: 40px;" class="ps-3">
+                        <input class="form-check-input" type="checkbox" id="checkAll">
+                    </th>
+                    <th scope="col">NAMA KARYAWAN</th>
                     <th scope="col">TIPE GAJI</th>
                     <th scope="col">U. HADIR / HARI</th>
                     <th scope="col">U. BULANAN</th>
@@ -51,12 +60,15 @@
             <tbody>
                 <?php if (empty($employees)): ?>
                     <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">Belum ada data karyawan.</td>
+                        <td colspan="7" class="text-center py-4 text-muted">Belum ada data karyawan.</td>
                     </tr>
                 <?php else: ?>
                     <?php foreach ($employees as $emp): ?>
                         <tr>
-                            <td class="ps-4 fw-medium text-dark">
+                            <td class="ps-3">
+                                <input class="form-check-input check-item" type="checkbox" name="ids[]" value="<?= $emp['id'] ?>">
+                            </td>
+                            <td class="fw-medium text-dark">
                                 <?= e($emp['name']) ?>
                                 <?php if ($emp['tipe_gaji'] === 'bulanan'): ?>
                                     <div class="small text-muted fw-normal">Gaji Pokok: <?= formatRupiah((int)$emp['gaji_pokok']) ?></div>
@@ -99,4 +111,32 @@
         </table>
     </div>
 </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const checkAll = document.getElementById('checkAll');
+    const checkItems = document.querySelectorAll('.check-item');
+    const btnBulkEdit = document.getElementById('btnBulkEdit');
+    const countSelected = document.getElementById('countSelected');
+
+    function updateSelection() {
+        const checkedCount = document.querySelectorAll('.check-item:checked').length;
+        countSelected.textContent = checkedCount;
+        btnBulkEdit.disabled = checkedCount === 0;
+        checkAll.checked = checkedCount > 0 && checkedCount === checkItems.length;
+    }
+
+    if (checkAll) {
+        checkAll.addEventListener('change', function() {
+            checkItems.forEach(item => item.checked = checkAll.checked);
+            updateSelection();
+        });
+    }
+
+    checkItems.forEach(item => {
+        item.addEventListener('change', updateSelection);
+    });
+});
+</script>
 

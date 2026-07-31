@@ -132,6 +132,64 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  // Handle Global Keyboard Shortcuts for Modals (Enter to Confirm, Backspace/Esc to Cancel)
+  document.addEventListener('keydown', (e) => {
+    // 1. Handle Custom Confirm Modal
+    const confirmModal = document.getElementById('salaryConfirmModal');
+    if (confirmModal && confirmModal.classList.contains('is-visible')) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        const btn = document.getElementById('salaryModalConfirmBtn');
+        if (btn) btn.click();
+        return;
+      }
+      if (e.key === 'Backspace' || e.key === 'Escape') {
+        // Prevent backspace from navigating back in browser
+        e.preventDefault();
+        e.stopPropagation();
+        const btn = document.getElementById('salaryModalCancelBtn');
+        if (btn) btn.click();
+        return;
+      }
+    }
+
+    // 2. Handle Success Overlays (any overlay ending with -success-overlay)
+    const successOverlays = document.querySelectorAll('[id$="-success-overlay"]');
+    for (const overlay of successOverlays) {
+      if (overlay) {
+        if (e.key === 'Enter' || e.key === 'Backspace' || e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          overlay.remove();
+          return;
+        }
+      }
+    }
+
+    // 3. Handle Static Modals (Server-rendered like Riwayat Kasbon)
+    const staticModal = document.querySelector('.modal.show[style*="display: block"]');
+    if (staticModal) {
+      // Check if focus is inside an input, if so, allow backspace to delete text
+      if (e.key === 'Backspace') {
+        const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+        if (activeTag === 'input' || activeTag === 'textarea') {
+           return; // Allow typing backspace
+        }
+      }
+
+      if (e.key === 'Backspace' || e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        const closeBtn = staticModal.querySelector('.btn-close, [data-bs-dismiss="modal"]');
+        if (closeBtn) {
+          closeBtn.click();
+        }
+        return;
+      }
+    }
+  });
+
   // Intercept data-confirm untuk link dan form submit biasa
   document.addEventListener('click', (e) => {
     const target = e.target.closest('[data-confirm]');

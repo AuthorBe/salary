@@ -16,15 +16,14 @@
 <div class="card glass-card border-0 shadow-sm">
     <div class="card-body p-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h5 class="card-title text-gray-800 fw-bold mb-0">Rekapitulasi Gaji Per Periode</h5>
+            <h5 class="card-title text-gray-800 fw-bold mb-0">Rekapitulasi Gaji Bulanan</h5>
         </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 border-0">
                 <thead class="table-light">
                     <tr style="height: 50px;">
-                        <th class="ps-4">Run ID & Periode</th>
-                        <th>Tipe</th>
-                        <th class="text-center">Karyawan</th>
+                        <th class="ps-4">Bulan</th>
+                        <th class="text-center">Total Karyawan</th>
                         <th class="text-end">Total Potongan (Hutang)</th>
                         <th class="text-end">Total Pengeluaran (Nett)</th>
                         <th class="text-center pe-4">Aksi Cetak</th>
@@ -33,19 +32,19 @@
                 <tbody>
                     <?php if (empty($reports)): ?>
                     <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">Belum ada data periode gaji yang disetujui.</td>
+                        <td colspan="5" class="text-center py-4 text-muted">Belum ada data periode gaji yang disetujui.</td>
                     </tr>
                     <?php else: ?>
                         <?php foreach ($reports as $r): ?>
                         <tr>
                             <td class="ps-4 py-3">
-                                <div class="fw-bold text-dark mb-1"><?= htmlspecialchars($r['run_name'] ?? 'Run #' . $r['id']) ?></div>
-                                <div class="text-muted small">
-                                    <?= date('d M Y', strtotime($r['periode_awal'])) ?> - <?= date('d M Y', strtotime($r['periode_akhir'])) ?>
+                                <div class="fw-bold text-dark mb-1">
+                                    <?php 
+                                    $bulanArr = ['01'=>'Januari','02'=>'Februari','03'=>'Maret','04'=>'April','05'=>'Mei','06'=>'Juni','07'=>'Juli','08'=>'Agustus','09'=>'September','10'=>'Oktober','11'=>'November','12'=>'Desember'];
+                                    $b = explode('-', $r['bulan']);
+                                    echo $bulanArr[$b[1]] . ' ' . $b[0];
+                                    ?>
                                 </div>
-                            </td>
-                            <td class="py-3">
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3"><?= ucfirst($r['type']) ?></span>
                             </td>
                             <td class="text-center fw-medium py-3 text-dark">
                                 <?= $r['total_karyawan'] ?> Orang
@@ -57,12 +56,9 @@
                                 Rp <?= number_format((float)$r['total_pengeluaran'], 0, ',', '.') ?>
                             </td>
                             <td class="text-center pe-4 py-3">
-                                <div class="d-flex flex-column gap-2 justify-content-center">
-                                    <a href="/reports/export?id=<?= $r['id'] ?>" class="btn btn-sm btn-danger px-3 shadow-sm rounded-pill" title="Ekspor PDF">
-                                        <i class="bi bi-file-earmark-pdf me-1"></i> Rekap Total
-                                    </a>
-                                    <a href="/history/slips-batch?run_id=<?= $r['id'] ?>" class="btn btn-sm btn-outline-secondary px-3 rounded-pill" title="Cetak Semua Slip Gaji">
-                                        <i class="bi bi-printer me-1"></i> Cetak Slips
+                                <div class="d-flex justify-content-center">
+                                    <a href="/reports/export?bulan=<?= $r['bulan'] ?>" class="btn btn-sm btn-danger px-3 shadow-sm rounded-pill" title="Ekspor PDF">
+                                        <i class="bi bi-file-earmark-pdf me-1"></i> Rekap Bulanan
                                     </a>
                                 </div>
                             </td>

@@ -124,6 +124,11 @@
                                     </div>
                                 </td>
                                 <td class="text-end pe-4">
+                                    <a href="<?= url('/productions/edit?date=' . urlencode($record['date']) . '&id_karyawan=' . $record['id_karyawan']) ?>" 
+                                       class="btn btn-sm btn-outline-primary border-0 rounded-circle me-1" 
+                                       title="Edit catatan">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-danger border-0 rounded-circle btn-delete-history" 
                                             title="Hapus catatan"
@@ -163,23 +168,22 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             const date = this.getAttribute('data-date');
             const displayDate = this.getAttribute('data-display-date');
-            const empId = this.getAttribute('data-empid');
-            const empName = this.getAttribute('data-empname');
+            const empid = this.getAttribute('data-empid');
+            const empname = this.getAttribute('data-empname');
 
             Swal.fire({
-                title: 'Hapus Seluruh Data Produksi?',
-                html: `Anda akan menghapus <b>semua</b> catatan produksi untuk karyawan <b class="text-danger">${empName}</b> pada tanggal <b>${displayDate}</b>.<br><br><span class="text-muted small">Tindakan ini tidak dapat dibatalkan.</span>`,
+                title: 'Hapus Data?',
+                html: `Anda yakin ingin menghapus catatan produksi <strong>${empname}</strong> pada tanggal <strong>${displayDate}</strong>?`,
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#dc3545',
+                confirmButtonColor: '#d33',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: '<i class="bi bi-trash"></i> Ya, Hapus Semua',
-                cancelButtonText: 'Batal',
-                reverseButtons: true
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
             }).then((result) => {
                 if (result.isConfirmed) {
                     inputDate.value = date;
-                    inputEmp.value = empId;
+                    inputEmp.value = empid;
                     form.submit();
                 }
             });

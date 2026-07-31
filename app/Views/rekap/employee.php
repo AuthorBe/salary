@@ -19,11 +19,7 @@
                 <label class="form-label text-muted fw-bold">Pilih Karyawan</label>
                 <select name="id_karyawan" class="form-select form-select-lg" required>
                     <option value="">-- Pilih Karyawan --</option>
-                    <?php foreach ($employees as $e): ?>
-                        <option value="<?= $e['id'] ?>" <?= $emp_id == $e['id'] ? 'selected' : '' ?>>
-                            <?= e($e['name']) ?> (<?= ucfirst($e['tipe_gaji']) ?>)
-                        </option>
-                    <?php endforeach; ?>
+                    <?= renderEmployeeOptions($employees, $emp_id) ?>
                 </select>
             </div>
             <div class="col-md-3">
@@ -69,39 +65,39 @@
         </div>
     </div>
 
-    <div class="row g-4 mb-4">
-        <div class="col-6 col-md-3">
+    <div class="row g-3 g-md-4 mb-4">
+        <div class="col-6 col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body p-4 text-center">
-                    <h6 class="text-muted fw-bold mb-3">Kehadiran</h6>
-                    <h3 class="fw-bold text-dark mb-0"><?= $stats['hadir'] ?> <span class="fs-6 text-muted">Hari</span></h3>
+                <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
+                    <h6 class="text-muted fw-bold mb-2" style="font-size: 0.85rem;">Kehadiran</h6>
+                    <h4 class="fw-bold text-dark mb-0"><?= $stats['hadir'] ?> <span class="fs-6 text-muted">Hari</span></h4>
                     <?php if ($stats['absen'] > 0): ?>
-                        <small class="text-danger fw-bold"><?= $stats['absen'] ?> absen/izin</small>
+                        <small class="text-danger fw-bold mt-1" style="font-size: 0.75rem;"><?= $stats['absen'] ?> absen/izin</small>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body p-4 text-center">
-                    <h6 class="text-muted fw-bold mb-3">Total Upah Produksi</h6>
-                    <h3 class="fw-bold text-success mb-0">Rp <?= formatRupiah($stats['produksi_reguler']) ?></h3>
+                <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
+                    <h6 class="text-muted fw-bold mb-2" style="font-size: 0.85rem;">Total Upah Produksi</h6>
+                    <h4 class="fw-bold text-success mb-0"><?= formatRupiah($stats['produksi_reguler']) ?></h4>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body p-4 text-center">
-                    <h6 class="text-muted fw-bold mb-3">Total Upah Lembur</h6>
-                    <h3 class="fw-bold text-warning-emphasis mb-0">Rp <?= formatRupiah($stats['uang_lembur']) ?></h3>
+                <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
+                    <h6 class="text-muted fw-bold mb-2" style="font-size: 0.85rem;">Total Upah Lembur</h6>
+                    <h4 class="fw-bold text-warning-emphasis mb-0"><?= formatRupiah($stats['uang_lembur']) ?></h4>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-lg-3">
             <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body p-4 text-center">
-                    <h6 class="text-muted fw-bold mb-3">Sisa Kasbon Saat Ini</h6>
-                    <h3 class="fw-bold text-danger mb-0">Rp <?= formatRupiah($stats['kasbon_sisa']) ?></h3>
+                <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
+                    <h6 class="text-muted fw-bold mb-2" style="font-size: 0.85rem;">Sisa Kasbon Saat Ini</h6>
+                    <h4 class="fw-bold text-danger mb-0"><?= formatRupiah($stats['kasbon_sisa']) ?></h4>
                 </div>
             </div>
         </div>
@@ -121,13 +117,14 @@
                             <th class="py-3 px-3 text-center">Status Absen</th>
                             <th class="py-3 px-3">Catatan / Detail Pekerjaan</th>
                             <th class="py-3 px-3 text-end">Uang Lembur (Rp)</th>
-                            <th class="py-3 px-3 text-end rounded-end">Upah Borongan (Rp)</th>
+                            <th class="py-3 px-3 text-end">Upah Borongan (Rp)</th>
+                            <th class="py-3 px-3 text-end rounded-end">Kasbon (Rp)</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($logs)): ?>
                             <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">Tidak ada aktivitas pada rentang tanggal ini.</td>
+                                <td colspan="6" class="text-center py-4 text-muted">Tidak ada aktivitas pada rentang tanggal ini.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($logs as $date => $log): ?>
@@ -187,6 +184,20 @@
                                     </td>
                                     <td class="px-3 text-end fw-bold <?= $totalUpahProd > 0 ? 'text-success' : 'text-muted' ?>">
                                         <?= $totalUpahProd > 0 ? formatRupiah($totalUpahProd) : '-' ?>
+                                    </td>
+                                    <td class="px-3 text-end">
+                                        <?php if (!empty($log['kasbon'])): ?>
+                                            <div class="d-flex flex-column gap-1 align-items-end">
+                                                <?php foreach ($log['kasbon'] as $k): ?>
+                                                    <span class="badge <?= $k['type'] === 'pinjam' ? 'bg-danger-subtle text-danger border border-danger-subtle' : 'bg-success-subtle text-success border border-success-subtle' ?> fw-semibold py-1 px-2" title="<?= e($k['keterangan']) ?>">
+                                                        <i class="bi <?= $k['type'] === 'pinjam' ? 'bi-arrow-down-left' : 'bi-arrow-up-right' ?> me-1"></i>
+                                                        <?= $k['type'] === 'pinjam' ? '-' : '+' ?> <?= formatRupiah($k['nominal']) ?>
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <span class="text-muted fw-bold">-</span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

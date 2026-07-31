@@ -19,13 +19,9 @@ $isEdit = !empty($debt);
                 <input type="text" class="form-control bg-light" value="<?= e($debt['employee_name']) ?>" readonly>
                 <input type="hidden" name="id_karyawan" value="<?= e($debt['id_karyawan']) ?>">
             <?php else: ?>
-                <select name="id_karyawan" id="id_karyawan" class="form-select" required>
+                <select name="id_karyawan" id="id_karyawan" class="form-select enter-nav" required>
                     <option value="">-- Pilih Karyawan --</option>
-                    <?php foreach ($activeEmployees as $emp): ?>
-                        <option value="<?= e($emp['id']) ?>">
-                            <?= e($emp['name']) ?> (<?= e(ucfirst($emp['tipe_gaji'])) ?>)
-                        </option>
-                    <?php endforeach; ?>
+                    <?= renderEmployeeOptions($activeEmployees) ?>
                 </select>
             <?php endif; ?>
         </div>
@@ -36,7 +32,7 @@ $isEdit = !empty($debt);
             <input type="text" 
                    name="keterangan" 
                    id="keterangan" 
-                   class="form-control" 
+                   class="form-control enter-nav" 
                    placeholder="Contoh: Kasbon Motor, Pinjaman Darurat" 
                    value="<?= e($debt['keterangan'] ?? '') ?>" 
                    required>
@@ -50,9 +46,9 @@ $isEdit = !empty($debt);
                 <input type="text" 
                        name="total_nominal" 
                        id="total_nominal" 
-                       class="form-control input-rupiah" 
+                       class="form-control input-rupiah enter-nav" 
                        placeholder="1.000.000" 
-                       value="<?= e($debt['total_nominal'] ?? '') ?>" 
+                       value="<?= isset($debt['total_nominal']) ? number_format((int)$debt['total_nominal'], 0, ',', '.') : '' ?>" 
                        <?= $isEdit ? 'readonly' : 'required' ?>>
             </div>
             <?php if ($isEdit): ?>
@@ -68,9 +64,9 @@ $isEdit = !empty($debt);
                 <input type="text" 
                        name="potongan_bawaan" 
                        id="potongan_bawaan" 
-                       class="form-control input-rupiah" 
+                       class="form-control input-rupiah enter-nav" 
                        placeholder="100.000" 
-                       value="<?= e($debt['potongan_bawaan'] ?? '') ?>" 
+                       value="<?= isset($debt['potongan_bawaan']) ? number_format((int)$debt['potongan_bawaan'], 0, ',', '.') : '' ?>" 
                        required>
             </div>
             <small class="text-muted">Nominal cicilan standar yang akan otomatis dipotong saat Payroll Run.</small>
@@ -79,7 +75,7 @@ $isEdit = !empty($debt);
         <!-- Catatan Tambahan -->
         <div class="mb-0">
             <label for="catatan" class="form-label">Catatan (Opsional)</label>
-            <textarea name="catatan" id="catatan" class="form-control" rows="2" placeholder="Catatan Tambahan..."><?= e($debt['catatan'] ?? '') ?></textarea>
+            <textarea name="catatan" id="catatan" class="form-control enter-nav" rows="2" placeholder="Catatan Tambahan..."><?= e($debt['catatan'] ?? '') ?></textarea>
         </div>
     </div>
 

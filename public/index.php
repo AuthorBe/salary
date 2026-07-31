@@ -114,18 +114,21 @@ $routes = [
     // Karyawan
     'GET /employees'             => [\App\Controllers\EmployeeController::class, 'index'],
     'GET /employees/form'        => [\App\Controllers\EmployeeController::class, 'form'],
+    'POST /employees/form'       => [\App\Controllers\EmployeeController::class, 'form'],
     'POST /employees/store'      => [\App\Controllers\EmployeeController::class, 'store'],
     'POST /employees/delete'     => [\App\Controllers\EmployeeController::class, 'destroy'],
 
     // Kelompok Harga
     'GET /product-groups'        => [\App\Controllers\ProductGroupController::class, 'index'],
     'GET /product-groups/form'   => [\App\Controllers\ProductGroupController::class, 'form'],
+    'POST /product-groups/form'  => [\App\Controllers\ProductGroupController::class, 'form'],
     'POST /product-groups/store' => [\App\Controllers\ProductGroupController::class, 'store'],
     'POST /product-groups/delete'=> [\App\Controllers\ProductGroupController::class, 'destroy'],
 
     // Produk
     'GET /products'              => [\App\Controllers\ProductController::class, 'index'],
     'GET /products/form'         => [\App\Controllers\ProductController::class, 'form'],
+    'POST /products/form'        => [\App\Controllers\ProductController::class, 'form'],
     'POST /products/store'       => [\App\Controllers\ProductController::class, 'store'],
     'POST /products/delete'      => [\App\Controllers\ProductController::class, 'destroy'],
 
@@ -160,6 +163,8 @@ $routes = [
     'GET /productions/history'          => [\App\Controllers\ProductionController::class, 'history'],
     'GET /productions/form'             => [\App\Controllers\ProductionController::class, 'loadForm'],
     'POST /productions/store'           => [\App\Controllers\ProductionController::class, 'store'],
+    'GET /productions/edit'             => [\App\Controllers\ProductionController::class, 'editForm'],
+    'POST /productions/update'          => [\App\Controllers\ProductionController::class, 'update'],
     'POST /productions/delete-employee' => [\App\Controllers\ProductionController::class, 'destroyEmployee'],
 
     // Lembur Dinamis
@@ -179,20 +184,27 @@ $routes = [
     'POST /payroll/store'               => [\App\Controllers\PayrollController::class, 'store'],
     'GET /payroll/preview'              => [\App\Controllers\PayrollController::class, 'show'],
     'POST /payroll/update-item'         => [\App\Controllers\PayrollController::class, 'updateItem'],
+    'POST /payroll/toggle-exclude'      => [\App\Controllers\PayrollController::class, 'toggleExclude'],
     'POST /payroll/approve'             => [\App\Controllers\PayrollController::class, 'approve'],
+    'POST /payroll/delete'              => [\App\Controllers\PayrollController::class, 'delete'],
     'POST /payroll/regenerate'          => [\App\Controllers\PayrollController::class, 'regenerate'],
+
+    // Penarikan Gaji
+    'GET /payroll/penarikan'            => [\App\Controllers\PenarikanGajiController::class, 'index'],
+    'POST /payroll/penarikan/store'     => [\App\Controllers\PenarikanGajiController::class, 'store'],
+    'POST /payroll/penarikan/destroy'   => [\App\Controllers\PenarikanGajiController::class, 'destroy'],
     'GET /payroll/export'               => [\App\Controllers\PayrollController::class, 'exportPdf'],
 
     // ── Phase 5: Riwayat, Laporan & Slip Gaji ───────────────────────────────
     // History Gaji
     'GET /history'          => [\App\Controllers\HistoryController::class, 'index'],
     'GET /history/slip'         => [\App\Controllers\HistoryController::class, 'downloadSlip'],
-    'POST /payroll/export-slips'        => [\App\Controllers\PayrollController::class, 'exportSlipsMass'],
+    'GET /payroll/export-slips'        => [\App\Controllers\PayrollController::class, 'exportSlipsMass'],
 
     // ── Phase 5: Laporan & Rekapitulasi ───────────────────────────────────────
     // Laporan Finansial Owner
     'GET /reports'                      => [\App\Controllers\ReportController::class, 'index'],
-    'GET /reports/export'               => [\App\Controllers\ReportController::class, 'exportPdf'],
+    'GET /reports/export'               => [\App\Controllers\ReportController::class, 'exportPdfBulan'],
 
     // Gerbang Rekap & Laporan Operasional
     'GET /rekap'                        => [\App\Controllers\RekapController::class, 'index'],

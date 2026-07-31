@@ -68,6 +68,8 @@ class OvertimeController
                     $qty = parseRupiah($item['kuantitas'] ?? '0');
                     $bal = parseRupiah($item['kuantitas_bal'] ?? '0');
 
+                    if ($qty <= 0 && $bal <= 0) continue; // Jangan simpan jika tidak ada qty
+
                     if (!isset($cleanItemsMap[$pId])) {
                         $cleanItemsMap[$pId] = [
                             'id_produk'     => $pId,

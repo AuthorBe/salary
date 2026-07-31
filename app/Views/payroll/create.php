@@ -2,8 +2,8 @@
 /**
  * @var string $title
  * @var string $type
- * @var string $period_start
- * @var string $period_end
+ * @var string $periode_awal
+ * @var string $periode_akhir
  */
 ?>
 
@@ -54,11 +54,11 @@
                     <div class="row g-3">
                         <div class="col-6">
                             <label for="periode_awal" class="form-label fw-semibold">Dari Tanggal <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control form-control-lg" id="periode_awal" name="periode_awal" value="<?= e($period_start) ?>" required>
+                            <input type="date" class="form-control form-control-lg" id="periode_awal" name="periode_awal" value="<?= e($periode_awal ?? '') ?>" required>
                         </div>
                         <div class="col-6">
                             <label for="periode_akhir" class="form-label fw-semibold">Sampai Tanggal <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control form-control-lg" id="periode_akhir" name="periode_akhir" value="<?= e($period_end) ?>" required>
+                            <input type="date" class="form-control form-control-lg" id="periode_akhir" name="periode_akhir" value="<?= e($periode_akhir ?? '') ?>" required>
                         </div>
                     </div>
                     <div class="form-text text-muted mt-2">

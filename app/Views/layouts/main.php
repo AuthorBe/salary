@@ -138,8 +138,12 @@
             
             <?php if (hasPermission('payroll')): ?>
             <a href="<?= url('/payroll') ?>" class="nav-item <?= ($pageKey ?? '') === 'payroll' ? 'active' : '' ?>">
-                <i class="bi bi-calendar-week-fill" style="color: #6366f1;"></i>
+                <i class="bi bi-wallet2" style="color: #6366f1;"></i>
                 <span>Data Payroll</span>
+            </a>
+            <a href="<?= url('/payroll/penarikan') ?>" class="nav-item <?= ($pageKey ?? '') === 'penarikan_gaji' ? 'active' : '' ?>">
+                <i class="bi bi-cash-stack" style="color: #10b981;"></i>
+                <span>Penarikan Gaji</span>
             </a>
             <?php endif; ?>
             
@@ -211,8 +215,8 @@
      ══════════════════════════════════════════════════════════════════════════ -->
 <header class="app-header" id="appHeader">
 
-    <!-- Hamburger menu (mobile only) -->
-    <button class="header-menu-btn" id="menuToggle" aria-label="Buka/tutup menu navigasi">
+    <!-- Hamburger menu (mobile only) - now hidden because of bottom nav -->
+    <button class="header-menu-btn d-none" id="menuToggle" aria-label="Buka/tutup menu navigasi">
         <i class="bi bi-list"></i>
     </button>
 
@@ -264,23 +268,26 @@
         <i class="bi bi-grid-1x2-fill"></i>
         <span>Dashboard</span>
     </a>
-    <a href="#" class="bottom-nav-item disabled">
+    <a href="<?= url('/employees') ?>" 
+       class="bottom-nav-item <?= ($pageKey ?? '') === 'employees' ? 'active' : '' ?>">
         <i class="bi bi-people-fill"></i>
         <span>Karyawan</span>
     </a>
-    <a href="#" class="bottom-nav-item disabled">
+    <a href="<?= url('/attendances') ?>" 
+       class="bottom-nav-item <?= ($pageKey ?? '') === 'attendance' ? 'active' : '' ?>">
         <i class="bi bi-calendar-check-fill"></i>
         <span>Absensi</span>
     </a>
-    <a href="#" class="bottom-nav-item disabled">
-        <i class="bi bi-cash-stack"></i>
+    <a href="<?= url('/payroll') ?>" 
+       class="bottom-nav-item <?= ($pageKey ?? '') === 'payroll' ? 'active' : '' ?>">
+        <i class="bi bi-wallet2"></i>
         <span>Payroll</span>
     </a>
-    <a href="<?= url('/logout') ?>"
+    <a href="#"
        class="bottom-nav-item"
-       data-confirm="Yakin ingin keluar?">
-        <i class="bi bi-box-arrow-right"></i>
-        <span>Keluar</span>
+       onclick="document.getElementById('menuToggle').click(); return false;">
+        <i class="bi bi-list"></i>
+        <span>Lainnya</span>
     </a>
 </nav>
 
@@ -290,23 +297,41 @@
 <!-- HTMX (untuk Fase 2+: partial updates tanpa full page reload) -->
 <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2uH1/8zX9hfg7SIOkzDkAUQY3cos9bnXLex" crossorigin="anonymous"></script>
 
+<!-- SweetAlert2 untuk Notifikasi yang Lebih Baik -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <!-- App JS -->
-<script src="<?= assetUrl('js/app.js') ?>"></script>
+<script src="<?= assetUrl('js/app.js') ?>?v=<?= time() ?>"></script>
+<script src="<?= assetUrl('js/keyboard-nav.js') ?>?v=<?= time() ?>"></script>
 
 <?php if (isset($pageGuide) && !empty($pageGuide)): ?>
 <!-- Modal Panduan Halaman -->
 <div class="modal fade" id="guideModal" tabindex="-1" aria-labelledby="guideModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content border-0 shadow" style="border-radius: 1rem;">
-      <div class="modal-header bg-primary text-white" style="border-radius: 1rem 1rem 0 0;">
-        <h5 class="modal-title fw-bold" id="guideModalLabel"><i class="bi bi-lightbulb me-2"></i>Panduan Penggunaan</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-content border-0" style="border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+      
+      <!-- Decorative Top Gradient Line -->
+      <div style="height: 6px; background: linear-gradient(90deg, #4f46e5, #0ea5e9); border-radius: 1.5rem 1.5rem 0 0;"></div>
+
+      <button type="button" class="btn-close position-absolute top-0 end-0 mt-4 me-4" data-bs-dismiss="modal" aria-label="Close" style="z-index: 10;"></button>
+
+      <div class="modal-body p-4 p-sm-5 pb-2">
+        <div class="d-flex align-items-center mb-4">
+            <div class="d-flex align-items-center justify-content-center rounded-4 me-3" style="width: 56px; height: 56px; background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);">
+                <i class="bi bi-lightbulb-fill" style="font-size: 1.75rem; color: #0284c7;"></i>
+            </div>
+            <h4 class="modal-title fw-bold mb-0 text-dark" style="letter-spacing: -0.5px;">Panduan Penggunaan</h4>
+        </div>
+        
+        <div class="guide-content text-secondary" style="font-size: 0.95rem; line-height: 1.7;">
+          <?= $pageGuide ?>
+        </div>
       </div>
-      <div class="modal-body p-4" style="font-size: 0.95rem; line-height: 1.6;">
-        <?= $pageGuide ?>
-      </div>
-      <div class="modal-footer border-0 pt-0 pb-4 px-4 justify-content-center">
-        <button type="button" class="btn btn-primary rounded-pill px-5 shadow-sm" data-bs-dismiss="modal">Paham, Terima Kasih!</button>
+      
+      <div class="modal-footer border-0 pt-0 pb-4 pb-sm-5 px-4 px-sm-5 justify-content-center">
+        <button type="button" class="btn btn-primary w-100 rounded-pill py-2 fw-semibold shadow-sm" data-bs-dismiss="modal" style="background: linear-gradient(to right, #0284c7, #3b82f6); border: none; transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 20px -10px rgba(59, 130, 246, 0.5)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 .125rem .25rem rgba(0,0,0,.075)';">
+          Paham, Terima Kasih!
+        </button>
       </div>
     </div>
   </div>

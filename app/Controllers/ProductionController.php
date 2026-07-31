@@ -71,12 +71,24 @@ class ProductionController
         $itemsRaw   = $_POST['items'] ?? []; // Array of ['id_produk', 'kuantitas', 'kuantitas_bal']
 
         if (!$date) {
-            echo renderAlert('danger', 'Tanggal tidak valid.');
+            $msg = renderAlert('danger', 'Tanggal tidak valid.');
+            if (isHtmx()) {
+                echo $msg;
+            } else {
+                $_SESSION['flash_error'] = 'Tanggal tidak valid.';
+                redirect('/productions');
+            }
             return;
         }
 
         if ($employeeId <= 0) {
-            echo renderAlert('danger', 'Silakan pilih karyawan terlebih dahulu.');
+            $msg = renderAlert('danger', 'Silakan pilih karyawan terlebih dahulu.');
+            if (isHtmx()) {
+                echo $msg;
+            } else {
+                $_SESSION['flash_error'] = 'Silakan pilih karyawan terlebih dahulu.';
+                redirect('/productions?date=' . urlencode($date));
+            }
             return;
         }
 
@@ -88,6 +100,8 @@ class ProductionController
 
             $qty = parseRupiah($item['kuantitas'] ?? '0');
             $bal = parseRupiah($item['kuantitas_bal'] ?? '0');
+
+            if ($qty <= 0 && $bal <= 0) continue; // Jangan simpan produk yang jumlahnya 0
 
             if (!isset($cleanItemsMap[$pId])) {
                 $cleanItemsMap[$pId] = [
@@ -104,7 +118,13 @@ class ProductionController
         $cleanItems = array_values($cleanItemsMap);
 
         if (empty($cleanItems)) {
-            echo renderAlert('warning', 'Harap masukkan sekurang-kurangnya 1 produk dengan jumlah lebih dari 0.');
+            $msg = renderAlert('warning', 'Harap masukkan sekurang-kurangnya 1 produk dengan jumlah lebih dari 0.');
+            if (isHtmx()) {
+                echo $msg;
+            } else {
+                $_SESSION['flash_error'] = 'Harap masukkan sekurang-kurangnya 1 produk dengan jumlah lebih dari 0.';
+                redirect('/productions?date=' . urlencode($date));
+            }
             return;
         }
 
@@ -203,6 +223,95 @@ class ProductionController
             } else {
                 redirect('/productions?date=' . urlencode($date));
             }
+        }
+    }
+
+    public function editForm(): void
+    {
+        checkPermission('production');
+        
+        $date = $_GET['date'] ?? '';
+        $employeeId = (int)($_GET['id_karyawan'] ?? 0);
+        
+        if (!$date || !$employeeId) {
+            echo renderAlert('danger', 'Data tidak valid.');
+            return;
+        }
+
+        $prodModel = new Production();
+        $error = null;
+        
+        try {
+            $prodModel->checkLockStatus($date, $employeeId);
+        } catch (\Exception $e) {
+            $error = $e->getMessage();
+        }
+
+        $empModel = new Employee();
+        $employee = $empModel->findById($employeeId);
+        
+        $prodModelData = new Product();
+        $products = $prodModelData->getAllWithGroup();
+        
+        $currentData = $error ? [] : $prodModel->getEmployeeProductionForEdit($date, $employeeId);
+
+        view('productions/edit', [
+            'date'        => $date,
+            'employee'    => $employee,
+            'products'    => $products,
+            'currentData' => $currentData,
+            'error'       => $error
+        ]);
+    }
+
+    public function update(): void
+    {
+        checkPermission('production');
+        validateCsrfToken();
+
+        $date = $_POST['date'] ?? '';
+        $employeeId = (int) ($_POST['id_karyawan'] ?? 0);
+        
+        if (!$date || !$employeeId) {
+            $_SESSION['flash_error'] = 'Data tidak valid.';
+            redirect('/productions/history');
+            return;
+        }
+
+        $items = $_POST['items'] ?? [];
+        $cleanItemsMap = [];
+
+        foreach ($items as $item) {
+            $pId = (int) ($item['id_produk'] ?? 0);
+            $qty = (int) ($item['kuantitas'] ?? 0);
+            $bal = (int) ($item['kuantitas_bal'] ?? 0);
+
+            if ($pId <= 0) continue;
+            if ($qty < 0) $qty = 0;
+            if ($bal < 0) $bal = 0;
+
+            if (!isset($cleanItemsMap[$pId])) {
+                $cleanItemsMap[$pId] = [
+                    'id_produk' => $pId,
+                    'kuantitas' => 0,
+                    'kuantitas_bal' => 0
+                ];
+            }
+            
+            $cleanItemsMap[$pId]['kuantitas'] += $qty;
+            $cleanItemsMap[$pId]['kuantitas_bal'] += $bal;
+        }
+        
+        $cleanItems = array_values($cleanItemsMap);
+
+        $prodModel = new Production();
+        try {
+            $prodModel->updateEmployeeProduction($date, $employeeId, $cleanItems);
+            $_SESSION['flash_success'] = 'Data produksi berhasil diperbarui.';
+            redirect('/productions/history');
+        } catch (\Exception $e) {
+            $_SESSION['flash_error'] = 'Gagal memperbarui: ' . $e->getMessage();
+            redirect('/productions/edit?date=' . urlencode($date) . '&id_karyawan=' . $employeeId);
         }
     }
 

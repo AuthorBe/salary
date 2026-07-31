@@ -127,6 +127,19 @@ class Debt
             return false;
         }
 
+        $currentRemaining = (float) $debt['sisa_nominal'];
+
+        // Capping: Jangan sampai nominal potongan melebihi sisa hutang yang ada.
+        // Jika melebihi, potong sejumlah sisa hutangnya saja untuk mencegah bug rollback.
+        if ($amount > $currentRemaining) {
+            $amount = $currentRemaining;
+        }
+
+        // Jika tidak ada yang dipotong (misal sisa hutang sudah 0), abaikan agar tidak ada log 0 Rupiah
+        if ($amount <= 0) {
+            return true;
+        }
+
         $inTransaction = false;
         if (!$db->inTransaction()) {
             $db->beginTransaction();
@@ -149,7 +162,7 @@ class Debt
             ]);
 
             // 2. Hitung sisa hutang baru
-            $newRemaining = (float) $debt['sisa_nominal'] - $amount;
+            $newRemaining = $currentRemaining - $amount;
             $newStatus = $debt['status'];
 
             if ($newRemaining <= 0) {

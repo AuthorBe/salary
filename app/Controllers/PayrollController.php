@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Attendance;
 use App\Models\Production;
 use App\Models\Debt;
+use App\Models\PenarikanGaji;
 
 class PayrollController
 {
@@ -20,7 +21,7 @@ class PayrollController
             <p>Halaman <strong>Data Payroll</strong> adalah pusat kendali untuk melakukan perhitungan (generate) gaji semua karyawan.</p>
             <ul class="mb-0 text-muted">
                 <li class="mb-2">Klik tombol <strong>Generate Payroll Baru</strong> untuk memulai perhitungan gaji otomatis berdasarkan data kehadiran, produksi borongan, tunjangan, dan kasbon.</li>
-                <li class="mb-2">Payroll yang baru digenerate akan berstatus <span class="badge bg-warning-subtle text-warning">Draft</span>. Artinya data tersebut masih bisa di-_review_ dan di-edit (seperti menambah Denda/Potongan Lain atau Tunjangan Ekstra).</li>
+                <li class="mb-2">Payroll yang baru digenerate akan berstatus <span class="badge bg-warning-subtle text-warning">Draft</span>. Artinya data tersebut masih bisa di-review dan di-edit (seperti menambah Denda/Potongan Lain atau Tunjangan Ekstra).</li>
                 <li>Setelah direview dan dirasa akurat, Anda harus mengklik tombol <span class="badge bg-success">Approve</span>. Payroll yang sudah disetujui akan terkunci permanen, menjadi riwayat resmi, dan barulah bisa dicetak slip gajinya.</li>
             </ul>
         ';
@@ -42,15 +43,20 @@ class PayrollController
         
         $settingModel = new \App\Models\AppSetting();
         $weekStartDay = (int) $settingModel->get('week_start_day', '1');
+        $weekEndDay = (int) $settingModel->get('week_end_day', '0');
         $map = [0 => 'sunday', 1 => 'monday', 2 => 'tuesday', 3 => 'wednesday', 4 => 'thursday', 5 => 'friday', 6 => 'saturday'];
         
-        $endDayIndex = ($weekStartDay + 6) % 7;
-        $endDayName = $map[$endDayIndex];
+        $endDayName = $map[$weekEndDay];
+        $startDayName = $map[$weekStartDay];
         
         // Default Mingguan
         $endWeekly = new \DateTime("last " . $endDayName);
         $startWeekly = clone $endWeekly;
-        $startWeekly->modify('-6 days');
+        if ($weekStartDay === $weekEndDay) {
+            $startWeekly->modify('-6 days');
+        } else {
+            $startWeekly->modify("last " . $startDayName);
+        }
         
         // Default Bulanan (Bulan ini)
         $startMonthly = new \DateTime('first day of this month');
@@ -106,6 +112,8 @@ class PayrollController
         if ($name === '') {
             // Fallback nama jika tidak diisi
             $name = 'Gaji ' . ucfirst($type) . ' ' . date('d M Y', strtotime($period_start));
+        } else {
+            $name = ucwords($name);
         }
 
         $db = getDB();
@@ -140,6 +148,7 @@ class PayrollController
             $employees = $empStmt->fetchAll();
 
             $debtModel = new Debt();
+            $penarikanModel = new PenarikanGaji();
             
             $itemCount = 0;
 
@@ -215,27 +224,43 @@ class PayrollController
                     }
                 }
 
+                // Calculate Penarikan Gaji
+                $penarikanTotal = 0.00;
+                $penarikanDetails = [];
+                if ($emp['tipe_gaji'] === 'bulanan' && $type === 'monthly') {
+                    $pendingPenarikan = $penarikanModel->getPendingByEmployee($emp['id'], $period_end);
+                    foreach ($pendingPenarikan as $p) {
+                        $penarikanTotal += (float)$p['nominal'];
+                        $penarikanDetails[] = [
+                            'id_penarikan' => $p['id'],
+                            'tanggal' => $p['tanggal'],
+                            'nominal' => $p['nominal']
+                        ];
+                    }
+                }
+
                 // Initial Net Salary
-                $netSalary = $baseSalary + $attendancePayTotal + $prodPayTotal + $overtimePayTotal + $monthlyAllowance - $debtsDeductionTotal;
+                $netSalary = $baseSalary + $attendancePayTotal + $prodPayTotal + $overtimePayTotal + $monthlyAllowance - $debtsDeductionTotal - $penarikanTotal;
                 if ($netSalary < 0) {
                     $netSalary = 0;
                 }
 
                 // Build details JSON
                 $detailsJson = json_encode([
-                    'debts' => $debtsDetails
+                    'debts' => $debtsDetails,
+                    'penarikan' => $penarikanDetails
                 ]);
 
                 // Insert Payroll Item
                 $insertItem = $db->prepare("
                     INSERT INTO rincian_penggajian (
                         id_penggajian, id_karyawan, gaji_pokok, hari_hadir, total_uang_kehadiran,
-                        total_upah_produksi, total_upah_lembur, tunjangan_bulanan, total_potongan_kasbon, gaji_bersih, rincian_json
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        total_upah_produksi, total_upah_lembur, tunjangan_bulanan, total_potongan_kasbon, total_penarikan_gaji, gaji_bersih, rincian_json
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $insertItem->execute([
                     $runId, $emp['id'], $baseSalary, $attendanceDays, $attendancePayTotal,
-                    $prodPayTotal, $overtimePayTotal, $monthlyAllowance, $debtsDeductionTotal, $netSalary, $detailsJson
+                    $prodPayTotal, $overtimePayTotal, $monthlyAllowance, $debtsDeductionTotal, $penarikanTotal, $netSalary, $detailsJson
                 ]);
                 
                 $itemCount++;
@@ -368,6 +393,47 @@ class PayrollController
         redirect('/payroll/preview?id=' . $runId);
     }
 
+    public function delete(): void
+    {
+        checkPermission('payroll');
+        validateCsrfToken();
+
+        $runId = (int)($_POST['id'] ?? 0);
+        
+        $db = getDB();
+        $prModel = new PayrollRun();
+        $run = $prModel->findById($runId);
+
+        if (!$run || $run['status'] !== 'draft') {
+            $_SESSION['flash_error'] = 'Payroll tidak valid atau sudah disetujui (tidak bisa dihapus).';
+            redirect('/payroll');
+            return;
+        }
+
+        try {
+            $db->beginTransaction();
+
+            // 1. Hapus rincian_penggajian
+            $db->prepare("DELETE FROM rincian_penggajian WHERE id_penggajian = ?")->execute([$runId]);
+
+            // 2. Hapus penggajian
+            $prModel->delete($runId);
+
+            $db->commit();
+            $_SESSION['flash_success'] = 'Draft Payroll berhasil dihapus.';
+            redirect('/payroll');
+
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                try {
+                    $db->rollBack();
+                } catch (\Throwable $t) {}
+            }
+            $_SESSION['flash_error'] = 'Gagal menghapus payroll: ' . $e->getMessage();
+            redirect('/payroll/preview?id=' . $runId);
+        }
+    }
+
     public function approve(): void
     {
         checkPermission('payroll');
@@ -395,11 +461,23 @@ class PayrollController
             $stmt->execute([$user['id'], $runId]);
 
             // 2. Lock Attendances and Productions
-            $lockAtt = $db->prepare("UPDATE absensi SET id_penggajian = ? WHERE id_penggajian IS NULL AND date BETWEEN ? AND ?");
-            $lockAtt->execute([$runId, $run['periode_awal'], $run['periode_akhir']]);
+            $lockAtt = $db->prepare("
+                UPDATE absensi 
+                SET id_penggajian = ? 
+                WHERE id_penggajian IS NULL 
+                  AND date BETWEEN ? AND ?
+                  AND id_karyawan IN (SELECT id_karyawan FROM rincian_penggajian WHERE id_penggajian = ? AND is_excluded = 0)
+            ");
+            $lockAtt->execute([$runId, $run['periode_awal'], $run['periode_akhir'], $runId]);
 
-            $lockProd = $db->prepare("UPDATE produksi SET id_penggajian = ? WHERE id_penggajian IS NULL AND date BETWEEN ? AND ?");
-            $lockProd->execute([$runId, $run['periode_awal'], $run['periode_akhir']]);
+            $lockProd = $db->prepare("
+                UPDATE produksi 
+                SET id_penggajian = ? 
+                WHERE id_penggajian IS NULL 
+                  AND date BETWEEN ? AND ?
+                  AND id_karyawan IN (SELECT id_karyawan FROM rincian_penggajian WHERE id_penggajian = ? AND is_excluded = 0)
+            ");
+            $lockProd->execute([$runId, $run['periode_awal'], $run['periode_akhir'], $runId]);
 
             // 3. Process Debts
             $piModel = new PayrollItem();
@@ -407,9 +485,12 @@ class PayrollController
             $debtModel = new Debt();
 
             foreach ($items as $item) {
-                if ($item['total_potongan_kasbon'] > 0 && !empty($item['rincian_json'])) {
+                if ($item['is_excluded'] == 1) continue;
+
+                if (!empty($item['rincian_json'])) {
                     $details = json_decode($item['rincian_json'], true);
-                    if (isset($details['debts']) && is_array($details['debts'])) {
+                    
+                    if ($item['total_potongan_kasbon'] > 0 && isset($details['debts']) && is_array($details['debts'])) {
                         foreach ($details['debts'] as $d) {
                             $debtModel->addDeduction(
                                 (int)$d['id_kasbon'], 
@@ -419,6 +500,13 @@ class PayrollController
                                 'Potongan otomatis payroll ID #' . $runId,
                                 (int)$item['id']
                             );
+                        }
+                    }
+
+                    if ($item['total_penarikan_gaji'] > 0 && isset($details['penarikan']) && is_array($details['penarikan'])) {
+                        foreach ($details['penarikan'] as $p) {
+                            $updPenarikan = $db->prepare("UPDATE penarikan_gaji SET id_penggajian = ? WHERE id = ?");
+                            $updPenarikan->execute([$runId, (int)$p['id_penarikan']]);
                         }
                     }
                 }
@@ -474,9 +562,10 @@ class PayrollController
         try {
             $db->beginTransaction();
 
-            // 1. Unlock Attendances and Productions
+            // 1. Unlock Attendances, Productions, and Penarikan Gaji
             $db->prepare("UPDATE absensi SET id_penggajian = NULL WHERE id_penggajian = ?")->execute([$runId]);
             $db->prepare("UPDATE produksi SET id_penggajian = NULL WHERE id_penggajian = ?")->execute([$runId]);
+            $db->prepare("UPDATE penarikan_gaji SET id_penggajian = NULL WHERE id_penggajian = ?")->execute([$runId]);
 
             // 2. Revert Debts (must restore sisa_nominal based on debt_deductions linked to payroll_items of this run)
             $piModel = new PayrollItem();
@@ -542,7 +631,7 @@ class PayrollController
             SELECT pi.*, e.name as employee_name, e.tipe_gaji
             FROM rincian_penggajian pi
             JOIN karyawan e ON pi.id_karyawan = e.id
-            WHERE pi.id_penggajian = ?
+            WHERE pi.id_penggajian = ? AND pi.is_excluded = 0
             ORDER BY e.name ASC
         ");
         $stmtItems->execute([$runId]);
@@ -558,5 +647,68 @@ class PayrollController
         $filename = 'Rekap ' . $statusStr . $safeRunName;
         
         streamPdf($html, $filename, 'A4', 'landscape');
+    }
+
+    public function exportSlipsMass(): void
+    {
+        $runId = (int)($_GET['run_id'] ?? 0);
+        $db = getDB();
+
+        // Get payroll run
+        $stmtRun = $db->prepare("SELECT * FROM penggajian WHERE id = ?");
+        $stmtRun->execute([$runId]);
+        $run = $stmtRun->fetch();
+
+        if (!$run) {
+            $_SESSION['flash_error'] = 'Data payroll tidak ditemukan.';
+            redirect('/payroll');
+            return;
+        }
+
+        // Ambil semua rincian
+        $stmtItems = $db->prepare("
+            SELECT pi.*, e.name as employee_name, e.tipe_gaji
+            FROM rincian_penggajian pi
+            JOIN karyawan e ON pi.id_karyawan = e.id
+            WHERE pi.id_penggajian = ? AND pi.is_excluded = 0
+            ORDER BY e.name ASC
+        ");
+        $stmtItems->execute([$runId]);
+        $items = $stmtItems->fetchAll();
+
+        if (empty($items)) {
+            $_SESSION['flash_error'] = 'Tidak ada slip gaji untuk periode ini.';
+            redirect('/payroll/preview?id=' . $runId);
+            return;
+        }
+
+        ob_start();
+        include APP_ROOT . '/app/Views/payroll/pdf_slips_batch.php';
+        $html = ob_get_clean();
+
+        $runName = $run['name'] ?: ('Run ' . $runId);
+        $safeRunName = preg_replace('/[^A-Za-z0-9_\- ]/', '', $runName);
+        $filename = 'Slip Gaji Batch ' . $safeRunName;
+        
+        // Always A4 landscape for these layouts (2x2 or 1x2)
+        streamPdf($html, $filename, 'A4', 'landscape');
+    }
+
+    public function toggleExclude(): void
+    {
+        checkPermission('payroll');
+        validateCsrfToken();
+        
+        $itemId = (int)($_POST['item_id'] ?? 0);
+        $runId = (int)($_POST['run_id'] ?? 0);
+        $isExcluded = (int)($_POST['is_excluded'] ?? 0);
+        $catatan = trim($_POST['catatan_pengecualian'] ?? '');
+
+        $db = getDB();
+        $stmt = $db->prepare("UPDATE rincian_penggajian SET is_excluded = ?, catatan_pengecualian = ? WHERE id = ? AND id_penggajian = ?");
+        $stmt->execute([$isExcluded, $catatan, $itemId, $runId]);
+
+        $_SESSION['flash_success'] = $isExcluded ? 'Karyawan berhasil dikecualikan.' : 'Pengecualian karyawan dibatalkan.';
+        redirect('/payroll/preview?id=' . $runId);
     }
 }

@@ -26,20 +26,36 @@ class ProductGroupController
     {
         checkPermission('product_groups');
 
-        $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-        $group = null;
+        $ids = [];
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids']) && is_array($_POST['ids'])) {
+            $ids = array_map('intval', $_POST['ids']);
+        } elseif (isset($_GET['id'])) {
+            $ids = [(int)$_GET['id']];
+        }
 
-        if ($id > 0) {
+        $groups = [];
+        if (!empty($ids)) {
             $model = new ProductGroup();
-            $group = $model->findById($id);
-            if (!$group) {
-                redirect('/product-groups');
+            foreach ($ids as $id) {
+                if ($id > 0) {
+                    $group = $model->findById($id);
+                    if ($group) {
+                        $groups[] = $group;
+                    }
+                }
             }
         }
 
+        $failedRows = $_SESSION['failed_rows'] ?? null;
+        unset($_SESSION['failed_rows']);
+
+        if ($failedRows) {
+            $groups = $failedRows;
+        }
+
         view('product_groups/form', [
-            'title' => ($id > 0 ? 'Edit' : 'Tambah') . ' Kelompok Harga',
-            'group' => $group
+            'title' => (!empty($groups) && !empty($groups[0]['id']) ? 'Edit' : 'Tambah') . ' Kelompok Harga',
+            'groups' => $groups
         ]);
     }
 
@@ -48,32 +64,71 @@ class ProductGroupController
         checkPermission('product_groups');
         validateCsrfToken();
 
-        $id = isset($_POST['id']) ? (int) $_POST['id'] : 0;
-        $name = trim($_POST['name'] ?? '');
-        $price = parseRupiah($_POST['harga_per_bungkus'] ?? '');
-
-        if ($name === '' || $price < 0) {
-            $_SESSION['flash_error'] = 'Nama dan harga wajib diisi dengan benar.';
-            redirect('/product-groups/form' . ($id > 0 ? '?id='.$id : ''));
-        }
-
-        $model = new ProductGroup();
-
-        if ($model->nameExists($name, $id)) {
-            $_SESSION['flash_error'] = "Gagal: Nama kelompok harga '{$name}' sudah digunakan. Silakan gunakan nama lain.";
-            redirect('/product-groups/form' . ($id > 0 ? '?id='.$id : ''));
+        $rows = $_POST['groups'] ?? [];
+        if (!is_array($rows)) {
+            redirect('/product-groups');
             return;
         }
 
-        if ($id > 0) {
-            $model->update($id, $name, $price);
-            $_SESSION['flash_success'] = 'Kelompok harga berhasil diperbarui.';
-        } else {
-            $model->create($name, $price);
-            $_SESSION['flash_success'] = 'Kelompok harga berhasil ditambahkan.';
+        $model = new ProductGroup();
+        $successCount = 0;
+        $failedRows = [];
+
+        foreach ($rows as $index => $row) {
+            $id = isset($row['id']) ? (int) $row['id'] : 0;
+            $name = trim($row['name'] ?? '');
+            $price = parseRupiah($row['harga_per_bungkus'] ?? '');
+
+            // Ignore totally empty rows dynamically added but untouched
+            if ($id === 0 && $name === '' && $price === 0) {
+                continue;
+            }
+
+            if ($name === '' || $price < 0) {
+                $failedRows[] = [
+                    'id' => $id,
+                    'name' => $name,
+                    'harga_per_bungkus' => $price,
+                    'error' => 'Nama dan harga wajib diisi dengan benar.'
+                ];
+                continue;
+            }
+
+            if ($model->nameExists($name, $id)) {
+                $failedRows[] = [
+                    'id' => $id,
+                    'name' => $name,
+                    'harga_per_bungkus' => $price,
+                    'error' => "Nama '{$name}' sudah digunakan."
+                ];
+                continue;
+            }
+
+            try {
+                if ($id > 0) {
+                    $model->update($id, $name, $price);
+                } else {
+                    $model->create($name, $price);
+                }
+                $successCount++;
+            } catch (\Exception $e) {
+                $failedRows[] = [
+                    'id' => $id,
+                    'name' => $name,
+                    'harga_per_bungkus' => $price,
+                    'error' => 'Gagal menyimpan: ' . $e->getMessage()
+                ];
+            }
         }
 
-        redirect('/product-groups');
+        if (count($failedRows) > 0) {
+            $_SESSION['flash_error'] = "Berhasil menyimpan $successCount data. Gagal menyimpan " . count($failedRows) . " data.";
+            $_SESSION['failed_rows'] = $failedRows;
+            redirect('/product-groups/form'); 
+        } else {
+            $_SESSION['flash_success'] = "Berhasil menyimpan $successCount kelompok harga.";
+            redirect('/product-groups');
+        }
     }
 
     public function destroy(): void

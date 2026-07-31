@@ -20,6 +20,7 @@ class SettingController
             $fields = [
                 'company_name'   => trim($_POST['company_name'] ?? ''),
                 'week_start_day' => (string)($_POST['week_start_day'] ?? '1'),
+                'week_end_day'   => (string)($_POST['week_end_day'] ?? '0'),
                 'timezone'       => 'Asia/Jakarta',
             ];
 
@@ -30,6 +31,9 @@ class SettingController
             }
             if (!in_array($fields['week_start_day'], ['0','1','2','3','4','5','6'], true)) {
                 $errors[] = 'Hari awal minggu tidak valid.';
+            }
+            if (!in_array($fields['week_end_day'], ['0','1','2','3','4','5','6'], true)) {
+                $errors[] = 'Hari akhir minggu tidak valid.';
             }
 
             if (!empty($errors)) {

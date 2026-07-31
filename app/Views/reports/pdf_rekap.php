@@ -113,14 +113,15 @@
                 <th rowspan="2">Kehadiran<br>(Hari / Rp)</th>
                 <th rowspan="2">Produksi (Rp)</th>
                 <th colspan="3">Tambahan (Rp)</th>
-                <th colspan="2">Potongan (Rp)</th>
+                <th colspan="3">Potongan (Rp)</th>
                 <th rowspan="2">Netto (Rp)</th>
             </tr>
             <tr>
                 <th>Lembur</th>
                 <th>Bulanan</th>
                 <th>Lain-lain</th>
-                <th>Kasbon</th>
+                <th>Hutang</th>
+                <th>Penarikan</th>
                 <th>Lain-lain</th>
             </tr>
         </thead>
@@ -134,6 +135,7 @@
                 $totTunjBulanan = 0;
                 $totTunjLain = 0;
                 $totKasbon = 0;
+                $totPenarikan = 0;
                 $totPotLain = 0;
                 $totNetto = 0;
 
@@ -143,8 +145,9 @@
                     $totProduksi += $row['total_upah_produksi'];
                     $totLembur += $row['total_upah_lembur'] ?? 0;
                     $totTunjBulanan += $row['tunjangan_bulanan'];
-                    $totTunjLain += $row['tunjangan_lain'];
+                    $totTunjLain += $row['tunjangan_lain'] + $row['nominal_pembulatan'];
                     $totKasbon += $row['total_potongan_kasbon'];
+                    $totPenarikan += $row['total_penarikan_gaji'] ?? 0;
                     $totPotLain += $row['potongan_lain'];
                     $totNetto += $row['gaji_bersih'];
             ?>
@@ -157,12 +160,15 @@
                 <td class="text-right"><?= number_format((float)$row['total_upah_produksi'], 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format((float)($row['total_upah_lembur'] ?? 0), 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format((float)$row['tunjangan_bulanan'], 0, ',', '.') ?></td>
-                <td class="text-right"><?= number_format((float)$row['tunjangan_lain'], 0, ',', '.') ?></td>
-                <td class="text-right"><?= number_format((float)$row['total_potongan_kasbon'], 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format($row['tunjangan_lain'] + $row['nominal_pembulatan'], 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format($row['total_potongan_kasbon'], 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format($row['total_penarikan_gaji'] ?? 0, 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format((float)$row['potongan_lain'], 0, ',', '.') ?></td>
                 <td class="text-right" style="font-weight:bold;"><?= number_format((float)$row['gaji_bersih'], 0, ',', '.') ?></td>
             </tr>
-            <?php endforeach; ?>
+            <?php 
+                endforeach; 
+            ?>
 
             <?php if (empty($items)): ?>
             <tr>
@@ -180,6 +186,7 @@
                 <th class="text-right"><?= number_format($totTunjBulanan, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totTunjLain, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totKasbon, 0, ',', '.') ?></th>
+                <th class="text-right"><?= number_format($totPenarikan, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totPotLain, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totNetto, 0, ',', '.') ?></th>
             </tr>

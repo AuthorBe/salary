@@ -218,6 +218,35 @@ class RekapController
                 $kasbonStmt = $db->prepare("SELECT SUM(sisa_nominal) FROM kasbon WHERE id_karyawan = ? AND status != 'lunas'");
                 $kasbonStmt->execute([$emp_id]);
                 $stats['kasbon_sisa'] = (float)$kasbonStmt->fetchColumn();
+
+                // Peminjaman Kasbon (Baru)
+                $pinjamStmt = $db->prepare("SELECT id, keterangan, total_nominal, DATE(created_at) as date FROM kasbon WHERE id_karyawan = ? AND DATE(created_at) BETWEEN ? AND ?");
+                $pinjamStmt->execute([$emp_id, $start_date, $end_date]);
+                $pinjamLogs = $pinjamStmt->fetchAll();
+                foreach ($pinjamLogs as $k) {
+                    $logs[$k['date']]['kasbon'][] = [
+                        'type' => 'pinjam',
+                        'nominal' => $k['total_nominal'],
+                        'keterangan' => $k['keterangan'] ?: 'Pinjam Kasbon'
+                    ];
+                }
+
+                // Pembayaran Kasbon (Cicilan)
+                $bayarStmt = $db->prepare("
+                    SELECT p.nominal, p.tanggal_potongan as date, p.catatan, p.type as method
+                    FROM potongan_kasbon p
+                    JOIN kasbon k ON p.id_kasbon = k.id
+                    WHERE k.id_karyawan = ? AND p.tanggal_potongan BETWEEN ? AND ?
+                ");
+                $bayarStmt->execute([$emp_id, $start_date, $end_date]);
+                $bayarLogs = $bayarStmt->fetchAll();
+                foreach ($bayarLogs as $b) {
+                    $logs[$b['date']]['kasbon'][] = [
+                        'type' => 'bayar',
+                        'nominal' => $b['nominal'],
+                        'keterangan' => $b['catatan'] ?: ($b['method'] == 'payroll' ? 'Dipotong dari gaji' : 'Pembayaran cicilan')
+                    ];
+                }
             }
         }
         

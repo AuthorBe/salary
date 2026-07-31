@@ -231,7 +231,7 @@
 
 <!-- Modal Form Kasbon Baru / Edit -->
 <div class="modal fade" id="modalDebtForm" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow rounded-4">
             <div class="modal-header border-bottom px-4 pt-4 pb-3">
                 <h5 class="modal-title fw-bold text-dark d-flex align-items-center">
@@ -276,17 +276,17 @@
                         <label for="pay_amount" class="form-label required">Nominal Pembayaran (Rp)</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light fw-bold text-muted">Rp</span>
-                            <input type="text" name="nominal" id="pay_amount" class="form-control input-rupiah" placeholder="100.000" required>
+                            <input type="text" name="nominal" id="pay_amount" class="form-control input-rupiah enter-nav" placeholder="100.000" required>
                         </div>
                         <small class="text-danger d-none mt-1" id="pay_error_msg">Nominal melebihi sisa hutang!</small>
                     </div>
                     <div class="mb-3">
                         <label for="pay_date" class="form-label required">Tanggal Pembayaran</label>
-                        <input type="date" name="tanggal_potongan" id="pay_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                        <input type="date" name="tanggal_potongan" id="pay_date" class="form-control enter-nav" value="<?= date('Y-m-d') ?>" required>
                     </div>
                     <div class="mb-0">
                         <label for="pay_notes" class="form-label">Catatan / Keterangan</label>
-                        <input type="text" name="catatan" id="pay_notes" class="form-control" value="Pembayaran tunai/manual">
+                        <input type="text" name="catatan" id="pay_notes" class="form-control enter-nav" value="Pembayaran tunai/manual">
                     </div>
                 </div>
                 <div class="modal-footer bg-light px-4 py-3 border-top">
@@ -428,6 +428,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 placeholder.innerHTML = html;
                 // Init format rupiah jika ada di partials
                 if (typeof initRupiahInput === 'function') initRupiahInput();
+                // Trigger keyboard nav UI injection (karena ini pakai fetch manual, bukan htmx)
+                if (typeof window.initKeyboardNavUI === 'function') window.initKeyboardNavUI();
             })
             .catch(err => {
                 placeholder.innerHTML = '<div class="p-4 text-center text-danger">Gagal memuat form.</div>';

@@ -55,32 +55,32 @@
 <div id="production-alert"></div>
 
 <div class="card border-0 shadow-sm mb-4">
-    <div class="card-body p-4">
-        <form class="row g-3 align-items-end" id="dateFilterForm" 
+    <div class="card-header bg-white border-bottom pt-3 pb-3">
+        <form class="row gy-2 gx-3 align-items-center" id="dateFilterForm" 
               hx-get="<?= url('/productions/form') ?>" 
               hx-target="#production-form-container" 
               hx-trigger="change from:#date">
             
-            <div class="col-md-4">
-                <label for="date" class="form-label fw-semibold">Pilih Tanggal Produksi</label>
-                <input type="date" class="form-control" id="date" name="date" value="<?= e($date) ?>" required max="<?= date('Y-m-d') ?>">
+            <div class="col-auto">
+                <label for="date" class="col-form-label fw-bold">Tanggal Input:</label>
             </div>
-            <div class="col-md-8">
-                <!-- HTMX Indicator -->
+            <div class="col-auto">
+                <input type="date" class="form-control fw-bold text-primary" id="date" name="date" value="<?= e($date) ?>" required max="<?= date('Y-m-d') ?>">
+            </div>
+            <div class="col-auto">
                 <div class="htmx-indicator spinner-border spinner-border-sm text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
             </div>
         </form>
     </div>
-</div>
-
-<!-- Tempat memuat form input tabel matrix karyawan x produk (SSR Initial Load + HTMX Update on Date Change) -->
-<div id="production-form-container">
-    <?php view('productions/_form', [
-        'date'        => $date,
-        'employees'   => $employees,
-        'products'    => $products,
-        'productions' => $productions
-    ], 'partials'); ?>
+    
+    <div class="card-body p-4" id="production-form-container">
+        <?php view('productions/_form', [
+            'date'        => $date,
+            'employees'   => $employees,
+            'products'    => $products,
+            'productions' => $productions
+        ], 'partials'); ?>
+    </div>
 </div>

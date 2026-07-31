@@ -1,18 +1,37 @@
 <?php
 /**
  * @var string $title
- * @var array|null $employee
+ * @var array $employees
  */
-$isEdit = $employee !== null;
-$salaryType = $isEdit ? $employee['tipe_gaji'] : 'borongan';
+
+if (empty($employees)) {
+    $employees = [[
+        'id' => 0,
+        'name' => '',
+        'tipe_gaji' => 'borongan',
+        'uang_kehadiran_harian' => 0,
+        'tunjangan_bulanan' => 0,
+        'gaji_pokok' => 0,
+        'aktif' => 1,
+        'error' => null
+    ]];
+}
+
+$isEditMode = false;
+foreach ($employees as $emp) {
+    if (!empty($emp['id'])) {
+        $isEditMode = true;
+        break;
+    }
+}
 ?>
 
 <div class="page-title-box d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3 mb-4">
     <div class="page-title-left">
         <h2 class="h4 mb-1 fw-bold d-flex align-items-center">
-            <i class="bi bi-person-fill text-primary me-2 fs-4"></i> <?= $isEdit ? 'Edit' : 'Tambah' ?> Karyawan
+            <i class="bi bi-person-fill text-primary me-2 fs-4"></i> <?= $title ?>
         </h2>
-        <p class="text-muted mb-0 fs-7 ms-4 ps-1">Lengkapi data informasi karyawan dengan benar</p>
+        <p class="text-muted mb-0 fs-7 ms-4 ps-1">Kelola data karyawan dalam jumlah banyak (Bulk Input/Edit)</p>
     </div>
     <div class="page-title-right">
         <a href="<?= url('/employees') ?>" class="btn btn-outline-secondary d-inline-flex align-items-center">
@@ -21,11 +40,10 @@ $salaryType = $isEdit ? $employee['tipe_gaji'] : 'borongan';
     </div>
 </div>
 
-<!-- Info Box: Penjelasan Pengosongan Field -->
 <div class="alert alert-info d-flex align-items-center mb-4 border-0 shadow-sm" role="alert">
     <i class="bi bi-info-circle-fill text-info fs-4 me-3"></i>
     <div>
-        <strong>Info Nominal:</strong> Jika komponen uang (seperti Gaji Pokok, Uang Hadir, dll) tidak diperlukan untuk karyawan ini, silakan dikosongkan. Sistem akan menganggapnya <strong>Rp 0</strong> secara otomatis dan penghitungan Payroll tetap aman.
+        <strong>Info Nominal:</strong> Jika komponen uang tidak diperlukan, biarkan Rp 0. Gaji Pokok khusus tipe Bulanan.
     </div>
 </div>
 
@@ -39,77 +57,224 @@ $salaryType = $isEdit ? $employee['tipe_gaji'] : 'borongan';
 
 <div class="card border-0 shadow-sm">
     <div class="card-body p-4">
-        <form action="<?= url('/employees/store') ?>" method="POST">
+        <form action="<?= url('/employees/store') ?>" method="POST" id="bulkForm" data-add-row-btn=".btn-add-row">
             <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
-            <?php if ($isEdit): ?>
-                <input type="hidden" name="id" value="<?= $employee['id'] ?>">
-            <?php endif; ?>
 
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="name" class="form-label fw-semibold">Nama Karyawan <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="name" name="name" 
-                           value="<?= $isEdit ? e($employee['name']) : '' ?>" 
-                           placeholder="Nama Lengkap" required>
-                </div>
-                <div class="col-md-6">
-                    <label for="tipe_gaji" class="form-label fw-semibold">Tipe Gaji <span class="text-danger">*</span></label>
-                    <select class="form-select" id="tipe_gaji" name="tipe_gaji" onchange="toggleSalaryFields()" required>
-                        <option value="borongan" <?= $salaryType === 'borongan' ? 'selected' : '' ?>>Borongan</option>
-                        <option value="bulanan" <?= $salaryType === 'bulanan' ? 'selected' : '' ?>>Bulanan</option>
-                                            </select>
-                </div>
+            <style>
+            @media (max-width: 767.98px) {
+                .responsive-table thead { display: none; }
+                .responsive-table tbody tr {
+                    display: block;
+                    margin-bottom: 1rem;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 0.5rem;
+                    padding: 1rem;
+                    background: #fff;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                }
+                .responsive-table tbody td {
+                    display: block;
+                    border: none;
+                    padding: 0.5rem 0;
+                    text-align: left !important;
+                }
+                .responsive-table tbody td::before {
+                    content: attr(data-label);
+                    display: block;
+                    font-weight: 600;
+                    margin-bottom: 0.25rem;
+                    color: #495057;
+                    font-size: 0.875rem;
+                }
+                .responsive-table tbody td:last-child {
+                    border-top: 1px solid #eee;
+                    margin-top: 0.5rem;
+                    padding-top: 1rem;
+                    text-align: right !important;
+                }
+                .responsive-table tbody td:last-child::before {
+                    display: none;
+                }
+            }
+            </style>
+
+            <div class="table-responsive mb-3" style="overflow-x: hidden;">
+                <table class="table table-bordered align-middle responsive-table" id="dynamicTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 20%;">Nama Karyawan <span class="text-danger">*</span></th>
+                            <th style="width: 12%;">Tipe Gaji</th>
+                            <th style="width: 18%;">Gaji Pokok</th>
+                            <th style="width: 18%;">Uang Hadir/Hari</th>
+                            <th style="width: 18%;">Uang Bulanan</th>
+                            <th style="width: 7%; text-align: center;">Aktif</th>
+                            <th style="width: 7%; text-align: center;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <?php foreach ($employees as $index => $emp): ?>
+                            <?php $isBulanan = ($emp['tipe_gaji'] ?? 'borongan') === 'bulanan'; ?>
+                            <tr>
+                                <td data-label="Nama Karyawan">
+                                    <input type="hidden" name="employees[<?= $index ?>][id]" value="<?= $emp['id'] ?? 0 ?>">
+                                    <input type="text" class="form-control enter-nav" name="employees[<?= $index ?>][name]" 
+                                           value="<?= e($emp['name'] ?? '') ?>" placeholder="Nama Karyawan" required>
+                                    <?php if (!empty($emp['error'])): ?>
+                                        <div class="text-danger mt-1 fs-7"><i class="bi bi-x-circle"></i> <?= e($emp['error']) ?></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td data-label="Tipe Gaji">
+                                    <select class="form-select tipe-gaji-select enter-nav" name="employees[<?= $index ?>][tipe_gaji]" required>
+                                        <option value="borongan" <?= !$isBulanan ? 'selected' : '' ?>>Borongan</option>
+                                        <option value="bulanan" <?= $isBulanan ? 'selected' : '' ?>>Bulanan</option>
+                                    </select>
+                                </td>
+                                <td data-label="Gaji Pokok (Bulanan)">
+                                    <input type="text" inputmode="numeric" class="form-control input-rupiah input-gajipokok enter-nav" 
+                                           name="employees[<?= $index ?>][gaji_pokok]" 
+                                           value="<?= (int)($emp['gaji_pokok'] ?? 0) ?>" <?= !$isBulanan ? 'readonly' : '' ?>>
+                                </td>
+                                <td data-label="Uang Hadir / Hari">
+                                    <input type="text" inputmode="numeric" class="form-control input-rupiah enter-nav" 
+                                           name="employees[<?= $index ?>][uang_kehadiran_harian]" 
+                                           value="<?= (int)($emp['uang_kehadiran_harian'] ?? 0) ?>">
+                                </td>
+                                <td data-label="Uang Bulanan">
+                                    <input type="text" inputmode="numeric" class="form-control input-rupiah enter-nav" 
+                                           name="employees[<?= $index ?>][tunjangan_bulanan]" 
+                                           value="<?= (int)($emp['tunjangan_bulanan'] ?? 0) ?>">
+                                </td>
+                                <td data-label="Status Aktif" class="text-md-center">
+                                    <?php if (empty($emp['id'])): ?>
+                                        <input type="hidden" name="employees[<?= $index ?>][aktif]" value="on">
+                                        <span class="badge bg-success rounded-pill px-3 py-2 fs-7">Aktif</span>
+                                    <?php else: ?>
+                                        <div class="form-check form-switch d-inline-block">
+                                            <input class="form-check-input" type="checkbox" name="employees[<?= $index ?>][aktif]" 
+                                                   <?= (!isset($emp['aktif']) || $emp['aktif']) ? 'checked' : '' ?>>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-md-center">
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row w-100" onclick="removeRow(this)">
+                                        <i class="bi bi-trash me-1"></i> Hapus
+                                    </button>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
 
-            <!-- Tipe Bulanan -->
-            <div class="row mb-3 salary-field salary-bulanan" style="display: <?= $salaryType === 'bulanan' ? 'flex' : 'none' ?>;">
-                <div class="col-md-6">
-                    <label for="gaji_pokok" class="form-label fw-semibold">Gaji Pokok (Rp)</label>
-                    <input type="text" inputmode="numeric" class="form-control input-rupiah" id="gaji_pokok" name="gaji_pokok" 
-                           value="<?= $isEdit ? (int)($employee['gaji_pokok'] ?? 0) : '' ?>">
-                </div>
+            <div class="d-flex flex-column flex-sm-row justify-content-between gap-3 mt-4">
+                <?php if (!$isEditMode): ?>
+                <button type="button" class="btn btn-secondary rounded-pill px-4 py-2 w-100 btn-add-row" onclick="addRow()">
+                    <i class="bi bi-plus-lg me-1"></i> Tambah Baris
+                </button>
+                <?php endif; ?>
+                <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm w-100">
+                    <i class="bi bi-save me-2"></i> Simpan Semua
+                </button>
             </div>
-
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="uang_kehadiran_harian" class="form-label fw-semibold">Uang Hadir per Hari (Rp)</label>
-                    <input type="text" inputmode="numeric" class="form-control input-rupiah" id="uang_kehadiran_harian" name="uang_kehadiran_harian" 
-                           value="<?= $isEdit ? (int)$employee['uang_kehadiran_harian'] : '0' ?>">
-                    <div class="form-text">Diberikan sesuai jumlah hari hadir.</div>
-                </div>
-                <div class="col-md-6">
-                    <label for="tunjangan_bulanan" class="form-label fw-semibold">Uang Bulanan (Rp)</label>
-                    <input type="text" inputmode="numeric" class="form-control input-rupiah" id="tunjangan_bulanan" name="tunjangan_bulanan" 
-                           value="<?= $isEdit ? (int)$employee['tunjangan_bulanan'] : '0' ?>">
-                    <div class="form-text">Dibayarkan di akhir bulan jika ada kehadiran.</div>
-                </div>
-            </div>
-
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="aktif" name="aktif" 
-                               <?= (!$isEdit || $employee['aktif']) ? 'checked' : '' ?>>
-                        <label class="form-check-label fw-semibold" for="aktif">Status Aktif</label>
-                    </div>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary d-inline-flex align-items-center">
-                <i class="bi bi-save me-2"></i> Simpan
-            </button>
         </form>
     </div>
 </div>
 
+<template id="rowTemplate">
+    <tr>
+        <td data-label="Nama Karyawan">
+            <input type="hidden" name="employees[{index}][id]" value="0">
+            <input type="text" class="form-control enter-nav" name="employees[{index}][name]" placeholder="Nama Karyawan" required>
+        </td>
+        <td data-label="Tipe Gaji">
+            <select class="form-select tipe-gaji-select enter-nav" name="employees[{index}][tipe_gaji]" required>
+                <option value="borongan" selected>Borongan</option>
+                <option value="bulanan">Bulanan</option>
+            </select>
+        </td>
+        <td data-label="Gaji Pokok (Bulanan)">
+            <input type="text" inputmode="numeric" class="form-control input-rupiah input-gajipokok enter-nav" 
+                   name="employees[{index}][gaji_pokok]" value="0" readonly>
+        </td>
+        <td data-label="Uang Hadir / Hari">
+            <input type="text" inputmode="numeric" class="form-control input-rupiah enter-nav" 
+                   name="employees[{index}][uang_kehadiran_harian]" value="0">
+        </td>
+        <td data-label="Uang Bulanan">
+            <input type="text" inputmode="numeric" class="form-control input-rupiah enter-nav" 
+                   name="employees[{index}][tunjangan_bulanan]" value="0">
+        </td>
+        <td data-label="Status Aktif" class="text-md-center">
+            <input type="hidden" name="employees[{index}][aktif]" value="on">
+            <span class="badge bg-success rounded-pill px-3 py-2 fs-7">Aktif</span>
+        </td>
+        <td class="text-md-center">
+            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-row w-100" onclick="removeRow(this)">
+                <i class="bi bi-trash me-1"></i> Hapus
+            </button>
+        </td>
+    </tr>
+</template>
+
 <script>
-function toggleSalaryFields() {
-    const type = document.getElementById('tipe_gaji').value;
-    document.querySelectorAll('.salary-field').forEach(el => el.style.display = 'none');
+let rowIndex = <?= max(count($employees), 1) * 100 ?>; // Make sure it's unique enough
+
+function addRow() {
+    const tbody = document.getElementById('tableBody');
+    const template = document.getElementById('rowTemplate').innerHTML;
+    const newHtml = template.replace(/\{index\}/g, rowIndex++);
     
-    if (type === 'bulanan') {
-        document.querySelector('.salary-bulanan').style.display = 'flex';
+    tbody.insertAdjacentHTML('beforeend', newHtml);
+    
+    // Re-init rupiah inputs for the newly added row
+    if (typeof initRupiahInputs === 'function') {
+        initRupiahInputs();
     }
 }
-</script>
 
+function removeRow(btn) {
+    const tbody = document.getElementById('tableBody');
+    if (tbody.querySelectorAll('tr').length > 1) {
+        const row = btn.closest('tr');
+        let focusTargetRow = row.previousElementSibling;
+        if (!focusTargetRow) {
+            focusTargetRow = row.nextElementSibling;
+        }
+        
+        row.remove();
+        
+        // Kembalikan kursor ke baris sebelumnya (atau setelahnya jika baris pertama dihapus)
+        if (focusTargetRow) {
+            const firstInput = focusTargetRow.querySelector('.enter-nav');
+            if (firstInput) {
+                firstInput.focus();
+                if (firstInput.tagName.toLowerCase() === 'input') {
+                    firstInput.select();
+                }
+            }
+        }
+    } else {
+        Swal.fire({
+            icon: 'warning',
+            text: 'Minimal harus ada 1 baris.',
+            toast: true,
+            position: 'top',
+            showConfirmButton: false,
+            timer: 3000
+        });
+    }
+}
+
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList.contains('tipe-gaji-select')) {
+        const row = e.target.closest('tr');
+        const gajiPokokInput = row.querySelector('.input-gajipokok');
+        if (e.target.value === 'bulanan') {
+            gajiPokokInput.removeAttribute('readonly');
+        } else {
+            gajiPokokInput.setAttribute('readonly', 'true');
+            gajiPokokInput.value = '0';
+        }
+    }
+});
+</script>

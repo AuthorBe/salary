@@ -56,7 +56,7 @@
                                 <tr>
                                     <td class="ps-4">
                                         <div class="form-check form-switch form-switch-lg mb-0" style="padding-left: 2.5rem;">
-                                            <input class="form-check-input attendance-switch" type="checkbox" role="switch" 
+                                            <input class="form-check-input attendance-switch enter-nav" type="checkbox" role="switch" 
                                                    name="hadir[]" value="<?= $emp['id'] ?>" 
                                                    id="present_<?= $emp['id'] ?>" 
                                                    data-emp-id="<?= $emp['id'] ?>"
@@ -76,7 +76,7 @@
                                     </td>
                                     <td class="pe-4" style="min-width: 240px;">
                                         <input type="text" 
-                                               class="form-control form-control-sm catatan-input" 
+                                               class="form-control form-control-sm catatan-input enter-nav" 
                                                name="catatan[<?= $emp['id'] ?>]" 
                                                id="notes_<?= $emp['id'] ?>"
                                                value="<?= e($notes) ?>"

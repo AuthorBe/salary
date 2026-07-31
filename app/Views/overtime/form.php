@@ -81,18 +81,16 @@ $bulananEmps  = array_filter($employees, fn($e) => $e['tipe_gaji'] === 'bulanan'
             
             <!-- TAB BORONGAN -->
             <div class="tab-pane fade show active" id="borongan" role="tabpanel" aria-labelledby="borongan-tab">
-                <form method="POST" action="<?= url('/overtime/store') ?>">
+                <form method="POST" action="<?= url('/overtime/store') ?>" id="boronganForm" data-add-row-btn="#btnAddRow">
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <input type="hidden" name="date" value="<?= e($date) ?>">
                     <input type="hidden" name="tipe_input" value="borongan">
 
                     <div class="mb-4">
                         <label for="employeeSelect" class="form-label fw-semibold">Pilih Karyawan Borongan</label>
-                        <select name="id_karyawan" class="form-select form-select-lg border-primary-subtle" id="employeeSelect" required onchange="handleBoronganChange(this)">
+                        <select name="id_karyawan" class="form-select form-select-lg border-primary-subtle enter-nav" id="employeeSelect" required onchange="handleBoronganChange(this)">
                             <option value="">-- Pilih Karyawan --</option>
-                            <?php foreach ($boronganEmps as $emp): ?>
-                                <option value="<?= $emp['id'] ?>"><?= e($emp['name']) ?></option>
-                            <?php endforeach; ?>
+                            <?= renderEmployeeOptions($boronganEmps) ?>
                         </select>
                     </div>
 
@@ -104,7 +102,7 @@ $bulananEmps  = array_filter($employees, fn($e) => $e['tipe_gaji'] === 'bulanan'
                                 <div class="row g-3 align-items-end">
                                     <div class="col-12 col-md-5">
                                         <label class="form-label small text-muted fw-bold mb-1">Nama Produk</label>
-                                        <select name="items[0][id_produk]" class="form-select product-select" required>
+                                        <select name="items[0][id_produk]" class="form-select product-select enter-nav" required>
                                             <option value="">-- Pilih Produk --</option>
                                             <?php 
                                             $currentGroup = '';
@@ -124,11 +122,11 @@ $bulananEmps  = array_filter($employees, fn($e) => $e['tipe_gaji'] === 'bulanan'
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <label class="form-label small text-muted fw-bold mb-1">Qty (Bungkus)</label>
-                                        <input type="text" name="items[0][kuantitas]" class="form-control text-end nominal-input" value="0">
+                                        <input type="text" name="items[0][kuantitas]" class="form-control text-end nominal-input enter-nav" value="0">
                                     </div>
                                     <div class="col-6 col-md-3">
                                         <label class="form-label small text-muted fw-bold mb-1">Qty (Bal)</label>
-                                        <input type="text" name="items[0][kuantitas_bal]" class="form-control text-end nominal-input" value="0">
+                                        <input type="text" name="items[0][kuantitas_bal]" class="form-control text-end nominal-input enter-nav" value="0">
                                     </div>
                                     <div class="col-12 col-md-1 mt-3 mt-md-0">
                                         <button type="button" class="btn btn-outline-danger w-100 btn-remove-row" title="Hapus Baris" disabled>
@@ -160,7 +158,7 @@ $bulananEmps  = array_filter($employees, fn($e) => $e['tipe_gaji'] === 'bulanan'
 
             <!-- TAB BULANAN -->
             <div class="tab-pane fade" id="bulanan" role="tabpanel" aria-labelledby="bulanan-tab">
-                <form method="POST" action="<?= url('/overtime/store') ?>">
+                <form method="POST" action="<?= url('/overtime/store') ?>" id="bulananForm" data-add-row-btn="#btnAddBulanan">
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <input type="hidden" name="date" value="<?= e($date) ?>">
                     <input type="hidden" name="tipe_input" value="bulanan">
@@ -175,18 +173,16 @@ $bulananEmps  = array_filter($employees, fn($e) => $e['tipe_gaji'] === 'bulanan'
                             <div class="row g-3 align-items-end">
                                 <div class="col-12 col-md-6">
                                     <label class="form-label small text-muted fw-bold mb-1">Pilih Karyawan Bulanan</label>
-                                    <select name="bulanan_items[0][id_karyawan]" class="form-select bulanan-select" required>
+                                    <select name="bulanan_items[0][id_karyawan]" class="form-select bulanan-select enter-nav" required>
                                         <option value="">-- Pilih Karyawan --</option>
-                                        <?php foreach ($bulananEmps as $emp): ?>
-                                            <option value="<?= $emp['id'] ?>"><?= e($emp['name']) ?></option>
-                                        <?php endforeach; ?>
+                                        <?= renderEmployeeOptions($bulananEmps) ?>
                                     </select>
                                 </div>
                                 <div class="col-10 col-md-5">
                                     <label class="form-label small text-muted fw-bold mb-1">Bonus Lembur (Rp)</label>
                                     <div class="input-group">
                                         <span class="input-group-text bg-light text-muted border-end-0">Rp</span>
-                                        <input type="text" name="bulanan_items[0][nominal]" class="form-control text-end fw-bold text-success border-start-0 nominal-input" value="0">
+                                        <input type="text" name="bulanan_items[0][nominal]" class="form-control text-end fw-bold text-success border-start-0 nominal-input enter-nav" value="0">
                                     </div>
                                 </div>
                                 <div class="col-2 col-md-1 mt-3 mt-md-0">
@@ -282,8 +278,20 @@ document.getElementById('btnAddRow')?.addEventListener('click', function() {
 document.getElementById('productionRows')?.addEventListener('click', function(e) {
     const btn = e.target.closest('.btn-remove-row');
     if (btn && !btn.hasAttribute('disabled')) {
-        btn.closest('.item-row').remove();
+        const row = btn.closest('.item-row');
+        let focusTargetRow = row.previousElementSibling;
+        if (!focusTargetRow) focusTargetRow = row.nextElementSibling;
+        
+        row.remove();
         updateRemoveButtons();
+        
+        if (focusTargetRow) {
+            const firstInput = focusTargetRow.querySelector('.enter-nav');
+            if (firstInput) {
+                firstInput.focus();
+                if (firstInput.tagName.toLowerCase() === 'input') firstInput.select();
+            }
+        }
     }
 });
 
@@ -323,8 +331,20 @@ document.getElementById('btnAddBulanan')?.addEventListener('click', function() {
 document.getElementById('bulananRows')?.addEventListener('click', function(e) {
     const btn = e.target.closest('.btn-remove-bulanan');
     if (btn && !btn.hasAttribute('disabled')) {
-        btn.closest('.bulanan-row').remove();
+        const row = btn.closest('.bulanan-row');
+        let focusTargetRow = row.previousElementSibling;
+        if (!focusTargetRow) focusTargetRow = row.nextElementSibling;
+        
+        row.remove();
         updateRemoveButtonsBulanan();
+        
+        if (focusTargetRow) {
+            const firstInput = focusTargetRow.querySelector('.enter-nav');
+            if (firstInput) {
+                firstInput.focus();
+                if (firstInput.tagName.toLowerCase() === 'input') firstInput.select();
+            }
+        }
     }
 });
 

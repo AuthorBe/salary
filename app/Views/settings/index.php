@@ -5,6 +5,7 @@
  */
 $companyName  = $settings['company_name'] ?? 'Bintang Harapan';
 $weekStartDay = (string)($settings['week_start_day'] ?? '1');
+$weekEndDay   = (string)($settings['week_end_day'] ?? '0');
 
 $days = [
     '0' => 'Minggu',
@@ -84,17 +85,33 @@ $days = [
                 </div>
                 <div class="card-body p-4">
                     <div class="mb-4">
-                        <label for="week_start_day" class="form-label fw-semibold">
-                            <i class="bi bi-calendar-week me-1 text-secondary"></i> Hari Awal Minggu (Payroll)
-                        </label>
-                        <select class="form-select form-select-lg" id="week_start_day" name="week_start_day">
-                            <?php foreach ($days as $val => $label): ?>
-                                <option value="<?= $val ?>" <?= (string)$val === $weekStartDay ? 'selected' : '' ?>>
-                                    <?= $label ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <div class="form-text">Menentukan hari pertama dalam 1 siklus penggajian mingguan.</div>
+                        <div class="row g-2">
+                            <div class="col-sm-6">
+                                <label for="week_start_day" class="form-label fw-semibold">
+                                    <i class="bi bi-calendar-week me-1 text-secondary"></i> Hari Awal Pekan
+                                </label>
+                                <select class="form-select form-select-lg" id="week_start_day" name="week_start_day">
+                                    <?php foreach ($days as $val => $label): ?>
+                                        <option value="<?= $val ?>" <?= (string)$val === $weekStartDay ? 'selected' : '' ?>>
+                                            <?= $label ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label for="week_end_day" class="form-label fw-semibold">
+                                    <i class="bi bi-calendar-check me-1 text-secondary"></i> Hari Akhir Pekan
+                                </label>
+                                <select class="form-select form-select-lg" id="week_end_day" name="week_end_day">
+                                    <?php foreach ($days as $val => $label): ?>
+                                        <option value="<?= $val ?>" <?= (string)$val === $weekEndDay ? 'selected' : '' ?>>
+                                            <?= $label ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-text mt-2">Menentukan hari pertama dan hari tutup buku dalam 1 siklus penggajian mingguan (Otomatis menyesuaikan filter tanggal).</div>
                     </div>
 
                     <div class="mb-3">

@@ -16,7 +16,17 @@ $totalDed = 0;
 $totalRound = 0;
 $totalNet = 0;
 
+$includedItems = [];
+$excludedItems = [];
 foreach ($items as $it) {
+    if (($it['is_excluded'] ?? 0) == 1) {
+        $excludedItems[] = $it;
+    } else {
+        $includedItems[] = $it;
+    }
+}
+
+foreach ($includedItems as $it) {
     $totalBase += $it['gaji_pokok'];
     $totalAtt += $it['total_uang_kehadiran'];
     $totalProd += $it['total_upah_produksi'];
@@ -29,8 +39,8 @@ foreach ($items as $it) {
 }
 ?>
 
-<div class="page-header mb-4 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
-    <div class="w-100">
+<div class="page-header mb-4 d-flex flex-column flex-sm-row justify-content-between align-items-start gap-3">
+    <div class="w-100 flex-grow-1">
         <h5 class="page-header-title text-dark fw-bold mb-2" style="font-size: 1.15rem;">
             <i class="bi bi-file-earmark-text text-primary me-1"></i> 
             Preview Payroll <?= $run['type'] === 'weekly' ? 'Mingguan' : 'Bulanan' ?>
@@ -40,19 +50,53 @@ foreach ($items as $it) {
             <span class="d-none d-sm-inline text-muted">|</span>
             <span class="badge bg-light text-dark border fw-normal"><i class="bi bi-tag me-1"></i> Tipe: <?= $run['type'] === 'weekly' ? 'Mingguan' : 'Bulanan' ?></span>
         </div>
+
+        <?php if (isset($_SESSION['flash_success'])): ?>
+            <div class="alert alert-success border-0 shadow-sm d-flex align-items-center justify-content-between mt-3 mb-0">
+                <div><i class="bi bi-check-circle-fill me-2 fs-5"></i> <?= e($_SESSION['flash_success']) ?></div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php unset($_SESSION['flash_success']); ?>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['flash_error'])): ?>
+            <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center justify-content-between mt-3 mb-0">
+                <div><i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i> <?= e($_SESSION['flash_error']) ?></div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php unset($_SESSION['flash_error']); ?>
+        <?php endif; ?>
     </div>
-    <div class="d-flex flex-wrap gap-2 w-100 justify-content-start justify-content-sm-end">
+    <div class="d-flex flex-wrap gap-2 w-auto justify-content-start justify-content-sm-end">
         <a href="<?= url('/payroll') ?>" class="btn btn-outline-secondary rounded-pill px-3 flex-sm-grow-0 flex-grow-1">
             <i class="bi bi-arrow-left me-1"></i> Kembali
         </a>
         <?php if ($isDraft): ?>
-            <button type="button" class="btn btn-secondary rounded-pill px-3 shadow-sm flex-sm-grow-0 flex-grow-1" disabled title="Approve payroll terlebih dahulu untuk mengunduh rekap">
-                <i class="bi bi-file-earmark-pdf me-1"></i> Rekap
-            </button>
+            <form action="<?= url('/payroll/delete') ?>" method="POST" class="flex-sm-grow-0 flex-grow-1 m-0">
+                <?= csrfField() ?>
+                <input type="hidden" name="id" value="<?= $run['id'] ?>">
+                <button type="submit" class="btn btn-outline-danger rounded-pill px-3 shadow-sm w-100" data-confirm="Yakin ingin menghapus data draft payroll ini? Data tidak dapat dikembalikan.">
+                    <i class="bi bi-trash me-1"></i> Hapus Data
+                </button>
+            </form>
         <?php else: ?>
-            <a href="<?= url('/payroll/export?id=' . $run['id']) ?>" class="btn btn-danger rounded-pill px-3 shadow-sm flex-sm-grow-0 flex-grow-1" target="_blank">
-                <i class="bi bi-file-earmark-pdf me-1"></i> Rekap
-            </a>
+            <div class="dropdown flex-sm-grow-0 flex-grow-1">
+                <button class="btn btn-danger rounded-pill px-3 shadow-sm w-100 dropdown-toggle" type="button" id="downloadDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-1"></i> Download PDF
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="downloadDropdown">
+                    <li>
+                        <a class="dropdown-item" href="<?= url('/payroll/export?id=' . $run['id']) ?>" target="_blank">
+                            <i class="bi bi-file-earmark-pdf me-2 text-danger"></i> Laporan Rekap Gaji
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="<?= url('/payroll/export-slips?run_id=' . $run['id']) ?>" target="_blank">
+                            <i class="bi bi-printer me-2 text-info"></i> Cetak Semua Slip (Batch)
+                        </a>
+                    </li>
+                </ul>
+            </div>
         <?php endif; ?>
         
         <?php if ($isDraft): ?>
@@ -64,10 +108,6 @@ foreach ($items as $it) {
                 </button>
             </form>
         <?php else: ?>
-            <button class="btn btn-light text-success border border-success-subtle rounded-pill px-3 flex-sm-grow-0 flex-grow-1" disabled>
-                <i class="bi bi-check-circle-fill me-1"></i> Approved
-            </button>
-            
             <?php 
                 $approvedTime = strtotime($run['disetujui_pada']);
                 $now = time();
@@ -85,28 +125,12 @@ foreach ($items as $it) {
     </div>
 </div>
 
-<?php if (isset($_SESSION['flash_success'])): ?>
-    <div class="alert alert-success border-0 shadow-sm d-flex align-items-center justify-content-between mb-4">
-        <div><i class="bi bi-check-circle-fill me-2 fs-5"></i> <?= e($_SESSION['flash_success']) ?></div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <?php unset($_SESSION['flash_success']); ?>
-<?php endif; ?>
-
-<?php if (isset($_SESSION['flash_error'])): ?>
-    <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center justify-content-between mb-4">
-        <div><i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i> <?= e($_SESSION['flash_error']) ?></div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    <?php unset($_SESSION['flash_error']); ?>
-<?php endif; ?>
-
 <!-- Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-xl-4 col-md-6">
         <div class="stat-card-context h-100 p-4">
             <div class="text-muted small fw-bold mb-1">TOTAL KARYAWAN</div>
-            <div class="fs-2 fw-bold text-dark"><?= count($items) ?> <span class="fs-6 text-muted fw-normal">Orang</span></div>
+            <div class="fs-2 fw-bold text-dark"><?= count($includedItems) ?> <span class="fs-6 text-muted fw-normal">Orang</span></div>
         </div>
     </div>
     <div class="col-xl-4 col-md-6">
@@ -136,7 +160,7 @@ foreach ($items as $it) {
                         <th scope="col" class="ps-3" style="width: 5%;">NO</th>
                         <th scope="col" style="width: 20%;">KARYAWAN</th>
                         <th scope="col" class="text-end">PENDAPATAN AWAL</th>
-                        <th scope="col" class="text-end">P. HUTANG</th>
+                        <th scope="col" class="text-end">POTONGAN</th>
                         <th scope="col" class="text-end">PENYESUAIAN (+/-)</th>
                         <th scope="col" class="text-end pe-3 text-success">NET GAJI</th>
                         <?php if ($isDraft): ?>
@@ -145,7 +169,7 @@ foreach ($items as $it) {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php $no = 1; foreach ($items as $it): 
+                    <?php $no = 1; foreach ($includedItems as $it): 
                         $pendapatanAwal = $it['gaji_pokok'] + $it['total_uang_kehadiran'] + $it['total_upah_produksi'] + ($it['total_upah_lembur'] ?? 0) + $it['tunjangan_bulanan'];
                         $penyesuaian = $it['tunjangan_lain'] + $it['nominal_pembulatan'] - $it['potongan_lain'];
                     ?>
@@ -155,18 +179,38 @@ foreach ($items as $it) {
                                 <div class="fw-bold text-dark"><?= e($it['employee_name']) ?></div>
                                 <small class="text-muted"><?= e(ucfirst($it['tipe_gaji'])) ?> &bull; <?= $it['hari_hadir'] ?> Hari</small>
                             </td>
-                            <td class="text-end">
-                                <div class="fw-semibold text-dark"><?= formatRupiah((int)$pendapatanAwal) ?></div>
-                                <?php if ($it['tunjangan_bulanan'] > 0): ?>
-                                    <small class="text-primary d-block" style="font-size: 0.7rem;">+ Uang Bulanan</small>
-                                <?php endif; ?>
-                                <?php if (($it['total_upah_lembur'] ?? 0) > 0): ?>
-                                    <small class="text-warning d-block fw-bold" style="font-size: 0.7rem;">+ Lembur <?= formatRupiah((int)$it['total_upah_lembur']) ?></small>
-                                <?php endif; ?>
+                            <td class="text-end" style="min-width: 180px;">
+                                <div class="fw-bold text-dark mb-1 pb-1 border-bottom"><?= formatRupiah((int)$pendapatanAwal) ?></div>
+                                <div class="text-muted d-flex flex-column gap-1" style="font-size: 0.75rem;">
+                                    <?php if ($it['gaji_pokok'] > 0): ?>
+                                        <div class="d-flex justify-content-between"><span>Gaji Pokok</span> <span><?= formatRupiah((int)$it['gaji_pokok']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if ($it['total_uang_kehadiran'] > 0): ?>
+                                        <div class="d-flex justify-content-between"><span>Kehadiran</span> <span><?= formatRupiah((int)$it['total_uang_kehadiran']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if ($it['total_upah_produksi'] > 0): ?>
+                                        <div class="d-flex justify-content-between"><span>Borongan</span> <span><?= formatRupiah((int)$it['total_upah_produksi']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if ($it['tunjangan_bulanan'] > 0): ?>
+                                        <div class="d-flex justify-content-between"><span>T. Bulanan</span> <span><?= formatRupiah((int)$it['tunjangan_bulanan']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if (($it['total_upah_lembur'] ?? 0) > 0): ?>
+                                        <div class="d-flex justify-content-between text-warning fw-bold"><span>Lembur</span> <span><?= formatRupiah((int)$it['total_upah_lembur']) ?></span></div>
+                                    <?php endif; ?>
+                                </div>
                             </td>
-                            <td class="text-end">
-                                <div class="fw-semibold <?= $it['total_potongan_kasbon'] > 0 ? 'text-danger' : 'text-muted' ?>">
-                                    <?= formatRupiah((int)$it['total_potongan_kasbon']) ?>
+                            <td class="text-end" style="min-width: 150px;">
+                                <?php $totalPotongan = ($it['total_potongan_kasbon'] ?? 0) + ($it['total_penarikan_gaji'] ?? 0); ?>
+                                <div class="fw-bold <?= $totalPotongan > 0 ? 'text-danger' : 'text-muted' ?> mb-1 pb-1 border-bottom">
+                                    <?= formatRupiah((int)$totalPotongan) ?>
+                                </div>
+                                <div class="text-muted d-flex flex-column gap-1" style="font-size: 0.75rem;">
+                                    <?php if (($it['total_potongan_kasbon'] ?? 0) > 0): ?>
+                                        <div class="d-flex justify-content-between"><span>Kasbon</span> <span class="text-danger"><?= formatRupiah((int)$it['total_potongan_kasbon']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if (($it['total_penarikan_gaji'] ?? 0) > 0): ?>
+                                        <div class="d-flex justify-content-between"><span>Penarikan</span> <span class="text-danger"><?= formatRupiah((int)$it['total_penarikan_gaji']) ?></span></div>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                             <td class="text-end">
@@ -190,6 +234,11 @@ foreach ($items as $it) {
                                             data-id="<?= $it['id'] ?>"
                                             data-name="<?= e($it['employee_name']) ?>"
                                             data-base="<?= (int)$pendapatanAwal ?>"
+                                            data-gajipokok="<?= (int)$it['gaji_pokok'] ?>"
+                                            data-kehadiran="<?= (int)$it['total_uang_kehadiran'] ?>"
+                                            data-borongan="<?= (int)$it['total_upah_produksi'] ?>"
+                                            data-tbulanan="<?= (int)$it['tunjangan_bulanan'] ?>"
+                                            data-lembur="<?= (int)($it['total_upah_lembur'] ?? 0) ?>"
                                             data-debt="<?= (int)$it['total_potongan_kasbon'] ?>"
                                             data-bonus="<?= (int)$it['tunjangan_lain'] ?>"
                                             data-bnotes="<?= e($it['catatan_tunjangan_lain']) ?>"
@@ -200,6 +249,14 @@ foreach ($items as $it) {
                                             data-bs-toggle="modal" data-bs-target="#modalAdjust">
                                         <i class="bi bi-pencil-square"></i> Sesuaikan
                                     </button>
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-exclude-item w-100"
+                                                data-id="<?= $it['id'] ?>"
+                                                data-name="<?= e($it['employee_name']) ?>"
+                                                data-bs-toggle="modal" data-bs-target="#modalExclude">
+                                            <i class="bi bi-x-circle"></i> Kecualikan
+                                        </button>
+                                    </div>
                                 </td>
                             <?php endif; ?>
                         </tr>
@@ -210,7 +267,93 @@ foreach ($items as $it) {
     </div>
 </div>
 
+<?php if (!empty($excludedItems)): ?>
+<div class="card border-0 shadow-sm rounded-4 mt-4 border-danger-subtle" style="background-color: #fff5f5;">
+    <div class="card-header bg-transparent border-bottom-0 pt-4 px-4 pb-0">
+        <h5 class="fw-bold text-danger mb-0"><i class="bi bi-x-circle-fill me-2"></i>Karyawan Dikecualikan</h5>
+        <p class="text-muted small">Karyawan berikut dikecualikan dari payroll ini dan gajinya tidak diproses.</p>
+    </div>
+    <div class="card-body p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-danger">
+                    <tr>
+                        <th scope="col" class="ps-3" style="width: 5%;">NO</th>
+                        <th scope="col" style="width: 25%;">KARYAWAN</th>
+                        <th scope="col">ALASAN PENGECUALIAN</th>
+                        <?php if ($isDraft): ?>
+                            <th scope="col" class="text-center" style="width: 15%;">AKSI</th>
+                        <?php endif; ?>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php $no_exc = 1; foreach ($excludedItems as $eit): ?>
+                        <tr>
+                            <td class="ps-3 fw-semibold text-muted"><?= $no_exc++ ?></td>
+                            <td>
+                                <div class="fw-bold text-dark"><?= e($eit['employee_name']) ?></div>
+                                <small class="text-muted"><?= e(ucfirst($eit['tipe_gaji'])) ?></small>
+                            </td>
+                            <td>
+                                <?= e($eit['catatan_pengecualian'] ?: '-') ?>
+                            </td>
+                            <?php if ($isDraft): ?>
+                                <td class="text-center">
+                                    <form action="<?= url('/payroll/toggle-exclude') ?>" method="POST" class="m-0">
+                                        <?= csrfField() ?>
+                                        <input type="hidden" name="item_id" value="<?= $eit['id'] ?>">
+                                        <input type="hidden" name="run_id" value="<?= $run['id'] ?>">
+                                        <input type="hidden" name="is_excluded" value="0">
+                                        <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-3" data-confirm="Batalkan pengecualian dan masukkan kembali karyawan ini ke payroll?">
+                                            <i class="bi bi-arrow-counterclockwise"></i> Batal Kecuali
+                                        </button>
+                                    </form>
+                                </td>
+                            <?php endif; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <?php if ($isDraft): ?>
+<!-- Modal Kecualikan -->
+<div class="modal fade" id="modalExclude" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom px-4 pt-4 pb-3">
+                <h5 class="modal-title fw-bold text-danger">
+                    <i class="bi bi-exclamation-triangle text-danger me-2"></i> Kecualikan <span id="exc_name" class="text-danger"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="<?= url('/payroll/toggle-exclude') ?>" method="POST">
+                <?= csrfField() ?>
+                <input type="hidden" name="item_id" id="exc_id" value="">
+                <input type="hidden" name="run_id" value="<?= $run['id'] ?>">
+                <input type="hidden" name="is_excluded" value="1">
+                
+                <div class="modal-body p-4">
+                    <p class="text-muted">Karyawan ini tidak akan diikutsertakan dalam payroll periode ini. Data absensi dan produksinya tidak akan dikunci sehingga bisa ditarik di payroll berikutnya.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Alasan Pengecualian (Opsional)</label>
+                        <textarea class="form-control" name="catatan_pengecualian" rows="3" placeholder="Tulis alasan jika ada..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light px-4 py-3 border-top">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger px-4">
+                        <i class="bi bi-x-circle me-1"></i> Kecualikan Karyawan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Sesuaikan -->
 <div class="modal fade" id="modalAdjust" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -229,15 +372,18 @@ foreach ($items as $it) {
                 <div class="modal-body p-4">
                     <div class="row mb-4">
                         <div class="col-md-6">
-                            <div class="p-3 bg-light rounded-3 border">
+                            <div class="p-3 bg-light rounded-3 border h-100">
                                 <div class="text-muted small fw-bold mb-1">TOTAL PENDAPATAN SEMENTARA</div>
-                                <div class="fs-4 fw-bold text-dark" id="adj_base_text">Rp 0</div>
+                                <div class="fs-4 fw-bold text-dark border-bottom pb-2 mb-2" id="adj_base_text">Rp 0</div>
+                                <div id="adj_base_breakdown" class="text-muted small d-flex flex-column gap-1">
+                                    <!-- JS breakdown here -->
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="p-3 bg-danger-subtle border border-danger-subtle rounded-3 text-danger">
                                 <label for="adj_debt_input" class="small fw-bold mb-1 d-block text-danger">POTONGAN HUTANG / KASBON (RP)</label>
-                                <input type="text" class="form-control input-rupiah border-danger-subtle text-danger fw-bold fs-4 bg-white" id="adj_debt_input" name="total_potongan_kasbon" value="0" onkeyup="calculateNet()">
+                                <input type="text" class="form-control input-rupiah border-danger-subtle text-danger fw-bold fs-4 bg-white enter-nav" id="adj_debt_input" name="total_potongan_kasbon" value="0" onkeyup="calculateNet()">
                             </div>
                         </div>
                     </div>
@@ -247,22 +393,22 @@ foreach ($items as $it) {
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="form-label text-success fw-bold">Bonus / Penambahan Lain (Rp)</label>
-                            <input type="text" class="form-control input-rupiah border-success-subtle text-success fw-semibold" id="adj_bonus" name="tunjangan_lain" value="0" onkeyup="calculateNet()">
+                            <input type="text" class="form-control input-rupiah border-success-subtle text-success fw-semibold enter-nav" id="adj_bonus" name="tunjangan_lain" value="0" onkeyup="calculateNet()">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted">Keterangan Bonus</label>
-                            <input type="text" class="form-control" id="adj_bnotes" name="catatan_tunjangan_lain" placeholder="Misal: Bonus lembur">
+                            <input type="text" class="form-control enter-nav" id="adj_bnotes" name="catatan_tunjangan_lain" placeholder="Misal: Bonus lembur">
                         </div>
                     </div>
 
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label class="form-label text-danger fw-bold">Pemotongan Manual Lain (Rp)</label>
-                            <input type="text" class="form-control input-rupiah border-danger-subtle text-danger fw-semibold" id="adj_ded" name="potongan_lain" value="0" onkeyup="calculateNet()">
+                            <input type="text" class="form-control input-rupiah border-danger-subtle text-danger fw-semibold enter-nav" id="adj_ded" name="potongan_lain" value="0" onkeyup="calculateNet()">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label text-muted">Keterangan Pemotongan</label>
-                            <input type="text" class="form-control" id="adj_dnotes" name="catatan_potongan_lain" placeholder="Misal: Denda keterlambatan">
+                            <input type="text" class="form-control enter-nav" id="adj_dnotes" name="catatan_potongan_lain" placeholder="Misal: Denda keterlambatan">
                         </div>
                     </div>
 
@@ -273,7 +419,7 @@ foreach ($items as $it) {
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-bold">Angka Penambah Pembulatan (Rp)</label>
-                            <input type="text" class="form-control input-rupiah" id="adj_round" name="nominal_pembulatan" value="0" onkeyup="calculateNet()">
+                            <input type="text" class="form-control input-rupiah enter-nav" id="adj_round" name="nominal_pembulatan" value="0" onkeyup="calculateNet()">
                         </div>
                     </div>
 
@@ -308,6 +454,21 @@ document.addEventListener('DOMContentLoaded', function() {
             currentDebt = parseInt(this.dataset.debt);
             
             document.getElementById('adj_base_text').innerText = formatRupiahJs(currentBase);
+            
+            let breakdownHtml = '';
+            const gp = parseInt(this.dataset.gajipokok) || 0;
+            const keh = parseInt(this.dataset.kehadiran) || 0;
+            const bor = parseInt(this.dataset.borongan) || 0;
+            const tb = parseInt(this.dataset.tbulanan) || 0;
+            const lem = parseInt(this.dataset.lembur) || 0;
+
+            if(gp > 0) breakdownHtml += `<div class="d-flex justify-content-between"><span>Gaji Pokok</span> <span>${formatRupiahJs(gp)}</span></div>`;
+            if(keh > 0) breakdownHtml += `<div class="d-flex justify-content-between"><span>Kehadiran</span> <span>${formatRupiahJs(keh)}</span></div>`;
+            if(bor > 0) breakdownHtml += `<div class="d-flex justify-content-between"><span>Borongan</span> <span>${formatRupiahJs(bor)}</span></div>`;
+            if(tb > 0) breakdownHtml += `<div class="d-flex justify-content-between"><span>T. Bulanan</span> <span>${formatRupiahJs(tb)}</span></div>`;
+            if(lem > 0) breakdownHtml += `<div class="d-flex justify-content-between text-warning fw-bold"><span>Lembur</span> <span>${formatRupiahJs(lem)}</span></div>`;
+            
+            document.getElementById('adj_base_breakdown').innerHTML = breakdownHtml;
             document.getElementById('adj_debt_input').value = formatRupiahJs(currentDebt).replace('Rp ', '');
             
             document.getElementById('adj_bonus').value = formatRupiahJs(parseInt(this.dataset.bonus)).replace('Rp ', '');
@@ -317,6 +478,14 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('adj_round').value = formatRupiahJs(parseInt(this.dataset.round)).replace('Rp ', '');
             
             calculateNet();
+        });
+    });
+
+    const excludeBtns = document.querySelectorAll('.btn-exclude-item');
+    excludeBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('exc_id').value = this.dataset.id;
+            document.getElementById('exc_name').innerText = '- ' + this.dataset.name;
         });
     });
 });

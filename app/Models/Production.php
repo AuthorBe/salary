@@ -82,6 +82,29 @@ class Production
         }
     }
 
+    public function checkLockStatus(string $date, int $employeeId): void
+    {
+        $stmt = $this->db->prepare("
+            SELECT pg.status 
+            FROM produksi p
+            JOIN penggajian pg ON p.id_penggajian = pg.id
+            WHERE p.id_karyawan = ? AND p.date = ? 
+            LIMIT 1
+        ");
+        $stmt->execute([$employeeId, $date]);
+        $status = $stmt->fetchColumn();
+
+        if ($status) {
+            if ($status === 'draft') {
+                throw new \Exception("Data terkunci di Draft Payroll. Silakan hapus draft payroll tersebut terlebih dahulu.");
+            } elseif ($status === 'approved') {
+                throw new \Exception("Data sudah masuk ke Payroll yang disetujui (Final). Anda harus melakukan Batal Approve pada riwayat payroll jika benar-benar ingin mengubahnya.");
+            } else {
+                throw new \Exception("Data produksi pada tanggal ini sudah Terkunci karena telah masuk ke proses Penggajian (Payroll).");
+            }
+        }
+    }
+
     /**
      * Simpan produksi untuk 1 karyawan tertentu di tanggal tertentu.
      * $items format: [['id_produk' => int, 'kuantitas' => int, 'kuantitas_bal' => int]]
@@ -91,11 +114,7 @@ class Production
         $this->db->beginTransaction();
         try {
             // PROTEKSI: Cek apakah data pada tanggal ini sudah dikunci (masuk payroll)
-            $checkLock = $this->db->prepare("SELECT COUNT(*) FROM produksi WHERE id_karyawan = ? AND date = ? AND id_penggajian IS NOT NULL");
-            $checkLock->execute([$employeeId, $date]);
-            if ($checkLock->fetchColumn() > 0) {
-                throw new \Exception("Data produksi pada tanggal ini sudah Terkunci karena telah masuk ke proses Penggajian (Payroll).");
-            }
+            $this->checkLockStatus($date, $employeeId);
             if ($isOvertime) {
                 $stmtIns = $this->db->prepare("
                     INSERT INTO produksi (id_karyawan, date, id_produk, lembur_kuantitas, lembur_kuantitas_bal)
@@ -137,17 +156,68 @@ class Production
         }
     }
 
+    public function updateEmployeeProduction(string $date, int $employeeId, array $items): void
+    {
+        $this->db->beginTransaction();
+        try {
+            $this->checkLockStatus($date, $employeeId);
+            
+            // Delete all existing un-locked records for this date & employee
+            $stmtDel = $this->db->prepare("DELETE FROM produksi WHERE id_karyawan = ? AND date = ?");
+            $stmtDel->execute([$employeeId, $date]);
+
+            $stmtIns = $this->db->prepare("
+                INSERT INTO produksi (id_karyawan, date, id_produk, kuantitas, kuantitas_bal)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+
+            foreach ($items as $item) {
+                $productId = (int) ($item['id_produk'] ?? 0);
+                $qty       = (int) ($item['kuantitas'] ?? 0);
+                $balQty    = (int) ($item['kuantitas_bal'] ?? 0);
+
+                if ($productId > 0 && ($qty > 0 || $balQty > 0)) {
+                    $stmtIns->execute([$employeeId, $date, $productId, $qty, $balQty]);
+                }
+            }
+
+            $this->db->commit();
+        } catch (\Exception $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Ambil rincian kuantitas produk per karyawan untuk form edit
+     */
+    public function getEmployeeProductionForEdit(string $date, int $employeeId): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT id_produk, SUM(kuantitas) as total_qty, SUM(kuantitas_bal) as total_bal
+            FROM produksi
+            WHERE id_karyawan = ? AND date = ?
+            GROUP BY id_produk
+        ");
+        $stmt->execute([$employeeId, $date]);
+        
+        $result = [];
+        while ($row = $stmt->fetch()) {
+            $result[$row['id_produk']] = [
+                'qty' => (int) $row['total_qty'],
+                'bal' => (int) $row['total_bal']
+            ];
+        }
+        return $result;
+    }
+
     /**
      * Hapus semua catatan produksi karyawan tertentu pada tanggal tertentu.
      */
     public function deleteEmployeeProduction(string $date, int $employeeId): void
     {
         // PROTEKSI: Cek apakah data pada tanggal ini sudah dikunci
-        $checkLock = $this->db->prepare("SELECT COUNT(*) FROM produksi WHERE id_karyawan = ? AND date = ? AND id_penggajian IS NOT NULL");
-        $checkLock->execute([$employeeId, $date]);
-        if ($checkLock->fetchColumn() > 0) {
-            throw new \Exception("Data produksi pada tanggal ini tidak dapat dihapus karena sudah Terkunci oleh sistem Penggajian (Payroll).");
-        }
+        $this->checkLockStatus($date, $employeeId);
         
         $stmt = $this->db->prepare("DELETE FROM produksi WHERE id_karyawan = ? AND date = ?");
         $stmt->execute([$employeeId, $date]);

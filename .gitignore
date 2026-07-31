@@ -31,4 +31,6 @@ node_modules/
 # Temporary / Scratch test files
 test*.php
 check_*.php
+patch*.php
 scratch/
+*.sql

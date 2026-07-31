@@ -12,40 +12,39 @@ class ReportController
             $db->exec("ALTER TABLE penggajian ADD COLUMN name VARCHAR(255) DEFAULT NULL;");
         } catch (\Exception $e) {}
 
-        // Ambil summary dari setiap payroll_runs yang di-approve
+        // Ambil summary per bulan dari payroll_runs yang di-approve
         // Menggunakan subquery agregasi dari rincian_penggajian
         $stmt = $db->query("
             SELECT 
-                pr.id, pr.periode_awal, pr.periode_akhir, pr.type, pr.disetujui_pada, pr.name as run_name,
-                COUNT(pi.id) as total_karyawan,
+                DATE_FORMAT(pr.periode_akhir, '%Y-%m') as bulan,
+                COUNT(DISTINCT pi.id_karyawan) as total_karyawan,
                 SUM(pi.gaji_bersih) as total_pengeluaran,
                 SUM(pi.total_potongan_kasbon + pi.potongan_lain) as total_potongan
             FROM penggajian pr
-            LEFT JOIN rincian_penggajian pi ON pr.id = pi.id_penggajian
+            JOIN rincian_penggajian pi ON pr.id = pi.id_penggajian
             WHERE pr.status = 'approved'
-            GROUP BY pr.id
-            ORDER BY pr.disetujui_pada DESC
+            GROUP BY DATE_FORMAT(pr.periode_akhir, '%Y-%m')
+            ORDER BY bulan DESC
         ");
         
         $reports = $stmt->fetchAll();
 
-        // Chart Data (6 bulan terakhir / 6 run terakhir)
+        // Chart Data (6 bulan terakhir)
         $chartData = [];
         $chartLabels = [];
         $chartValues = [];
         foreach (array_slice(array_reverse($reports), -6) as $r) {
-            $runName = $r['run_name'] ?: ('Run #' . $r['id']);
-            $chartLabels[] = $runName . ' (' . date('d M', strtotime($r['periode_awal'])) . ')';
+            $bulanName = date('M Y', strtotime($r['bulan'] . '-01'));
+            $chartLabels[] = $bulanName;
             $chartValues[] = (float)$r['total_pengeluaran'];
         }
 
         $pageGuide = '
             <p><strong>Laporan Owner</strong> dirancang khusus sebagai dasbor pantauan finansial (kesehatan keuangan) atas beban gaji karyawan.</p>
             <ul class="mb-0 text-muted">
-                <li class="mb-2"><strong>Grafik Tren Pengeluaran:</strong> Menampilkan visualisasi naik/turunnya beban gaji pada 6 siklus periode terakhir. Sangat membantu untuk mendeteksi lonjakan biaya tak terduga.</li>
-                <li class="mb-2"><strong>Tabel Rekapitulasi:</strong> Memuat rincian total karyawan, total hutang/potongan, dan total bersih yang dibayarkan ke karyawan per periodenya.</li>
-                <li class="mb-2"><strong>Rekap Total:</strong> Tombol merah ini akan mengekspor Laporan Tabel Detil berformat PDF (A4 Lanskap) yang merinci nama-nama karyawan berserta seluruh nominal rinciannya di periode tersebut. Cocok untuk arsip fisik keuangan.</li>
-                <li><strong>Cetak Slips:</strong> Tombol ini akan otomatis mengumpulkan dan mempaketkan RATUSAN slip gaji karyawan di periode itu menjadi 1 buah file PDF massal siap cetak (1 lembar per karyawan).</li>
+                <li class="mb-2"><strong>Grafik Tren Pengeluaran:</strong> Menampilkan visualisasi naik/turunnya beban gaji pada 6 bulan terakhir. Sangat membantu untuk mendeteksi lonjakan biaya tak terduga.</li>
+                <li class="mb-2"><strong>Tabel Rekapitulasi:</strong> Memuat rincian total karyawan unik, total hutang/potongan, dan total bersih yang dibayarkan ke karyawan per bulannya.</li>
+                <li><strong>Cetak Laporan:</strong> Tombol merah ini akan mengekspor Laporan Tabel Detil berformat PDF (A4 Lanskap) yang merinci nama-nama karyawan berserta seluruh nominal rinciannya di bulan tersebut yang dikelompokkan berdasarkan tipe karyawan.</li>
             </ul>
         ';
 
@@ -60,42 +59,59 @@ class ReportController
         ]);
     }
 
-    public function exportPdf(): void
+    public function exportPdfBulan(): void
     {
         checkPermission('reports_owner');
 
-        $runId = (int)($_GET['id'] ?? 0);
-        $db = getDB();
-
-        // Ambil info payroll run
-        $stmtRun = $db->prepare("SELECT * FROM penggajian WHERE id = ? AND status = 'approved'");
-        $stmtRun->execute([$runId]);
-        $run = $stmtRun->fetch();
-
-        if (!$run) {
-            $_SESSION['flash_error'] = 'Data payroll tidak valid atau belum disetujui.';
+        $bulan = $_GET['bulan'] ?? '';
+        if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) {
+            $_SESSION['flash_error'] = 'Format bulan tidak valid.';
             redirect('/reports');
             return;
         }
 
-        // Ambil semua rincian
+        $db = getDB();
+
+        // Ambil semua rincian yang disetujui di bulan ini, kelompokkan per karyawan
         $stmtItems = $db->prepare("
-            SELECT pi.*, e.name as employee_name, e.tipe_gaji
+            SELECT 
+                e.id as id_karyawan,
+                e.name as employee_name, 
+                e.tipe_gaji,
+                SUM(pi.gaji_pokok) as gaji_pokok,
+                SUM(pi.hari_hadir) as hari_hadir,
+                SUM(pi.total_uang_kehadiran) as total_uang_kehadiran,
+                SUM(pi.total_upah_produksi) as total_upah_produksi,
+                SUM(pi.total_upah_lembur) as total_upah_lembur,
+                SUM(pi.tunjangan_bulanan) as tunjangan_bulanan,
+                SUM(pi.tunjangan_lain) as tunjangan_lain,
+                SUM(pi.total_potongan_kasbon) as total_potongan_kasbon,
+                SUM(pi.potongan_lain) as potongan_lain,
+                SUM(pi.gaji_bersih) as gaji_bersih
             FROM rincian_penggajian pi
+            JOIN penggajian pr ON pi.id_penggajian = pr.id
             JOIN karyawan e ON pi.id_karyawan = e.id
-            WHERE pi.id_penggajian = ?
-            ORDER BY e.name ASC
+            WHERE pr.status = 'approved' 
+              AND DATE_FORMAT(pr.periode_akhir, '%Y-%m') = ?
+            GROUP BY e.id, e.name, e.tipe_gaji
+            ORDER BY e.tipe_gaji ASC, e.name ASC
         ");
-        $stmtItems->execute([$runId]);
+        $stmtItems->execute([$bulan]);
         $items = $stmtItems->fetchAll();
 
+        if (empty($items)) {
+            $_SESSION['flash_error'] = 'Tidak ada data penggajian untuk bulan tersebut.';
+            redirect('/reports');
+            return;
+        }
+
+        $bulanName = date('F Y', strtotime($bulan . '-01'));
+
         ob_start();
-        include APP_ROOT . '/app/Views/reports/pdf_rekap.php';
+        include APP_ROOT . '/app/Views/reports/pdf_rekap_bulanan.php';
         $html = ob_get_clean();
 
-        $runName = $run['name'] ?: ('Run ' . $runId);
-        $safeRunName = preg_replace('/[^A-Za-z0-9_\- ]/', '', $runName);
-        $filename = 'Laporan Rekap ' . $safeRunName;
+        $filename = 'Rekap Gajian Bulanan ' . $bulanName;
         
         // A4 Landscape lebih cocok untuk tabel lebar
         streamPdf($html, $filename, 'A4', 'landscape');
