@@ -13,8 +13,8 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
-# Security: prevent directory listing
-Options -Indexes
+# Security: prevent directory listing (Dinonaktifkan karena dilarang oleh InfinityFree)
+# Options -Indexes
 
 <IfModule mod_headers.c>
     # 1. Jangan pernah cache file PHP, HTML, dan Service Worker
