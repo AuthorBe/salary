@@ -20,11 +20,11 @@ function getDB(): PDO
         return $pdo;
     }
 
-    $host     = getenv('DB_HOST')     ?: 'localhost';
-    $port     = getenv('DB_PORT')     ?: '3306';
-    $dbname   = getenv('DB_DATABASE') ?: 'salary';
-    $username = getenv('DB_USERNAME') ?: 'root';
-    $password = getenv('DB_PASSWORD') ?: '';
+    $host     = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?: 'localhost';
+    $port     = $_ENV['DB_PORT'] ?? getenv('DB_PORT') ?: '3306';
+    $dbname   = $_ENV['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: 'salary';
+    $username = $_ENV['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: 'root';
+    $password = $_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: '';
 
     $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4";
 
@@ -38,7 +38,7 @@ function getDB(): PDO
         $pdo = new PDO($dsn, $username, $password, $options);
     } catch (PDOException $e) {
         // Jangan expose detail credential di pesan error
-        if (getenv('APP_DEBUG') === 'true') {
+        if (($_ENV['APP_DEBUG'] ?? getenv('APP_DEBUG')) === 'true') {
             throw new RuntimeException('Database connection failed: ' . $e->getMessage());
         }
         throw new RuntimeException('Koneksi database gagal. Periksa konfigurasi di file .env.');

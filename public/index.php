@@ -22,7 +22,7 @@ require_once APP_ROOT . '/config/env.php';
 date_default_timezone_set('Asia/Jakarta');
 
 // Error display berdasarkan mode debug
-if (getenv('APP_DEBUG') === 'true') {
+if (($_ENV['APP_DEBUG'] ?? getenv('APP_DEBUG')) === 'true') {
     ini_set('display_errors', '1');
     error_reporting(E_ALL);
 } else {
