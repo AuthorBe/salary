@@ -1,0 +1,34 @@
+name: Deploy PHP & Composer to InfinityFree
+
+on:
+  push:
+    branches:
+      - main # Jika nama branch kamu 'master', ubah tulisan 'main' ini jadi 'master'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Ambil kode terbaru dari repo GitHub
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # 2. Setup PHP di server GitHub untuk install Composer
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+
+      # 3. Otomatis download vendor / package (termasuk PDF)
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest --ignore-platform-reqs
+
+      # 4. Sync / Upload seluruh file + folder vendor ke InfinityFree
+      - name: Sync Files to InfinityFree via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: /htdocs/
