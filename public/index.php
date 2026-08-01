@@ -216,11 +216,21 @@ $routes = [
 
 $routeKey = $method . ' ' . $uri;
 
-if (isset($routes[$routeKey])) {
-    [$controllerClass, $actionMethod] = $routes[$routeKey];
-    $controller = new $controllerClass();
-    $controller->$actionMethod();
-} else {
-    http_response_code(404);
-    view('errors/404', ['title' => '404 – Halaman Tidak Ditemukan'], 'error');
+try {
+    if (isset($routes[$routeKey])) {
+        [$controllerClass, $actionMethod] = $routes[$routeKey];
+        $controller = new $controllerClass();
+        $controller->$actionMethod();
+    } else {
+        http_response_code(404);
+        view('errors/404', ['title' => '404 – Halaman Tidak Ditemukan'], 'error');
+    }
+} catch (\Throwable $e) {
+    http_response_code(500);
+    echo "<div style='padding:20px; font-family:sans-serif; background:#f8d7da; color:#721c24; border:1px solid #f5c6cb;'>";
+    echo "<h2>Aplikasi Crash (Error 500)</h2>";
+    echo "<p><strong>Pesan Error:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . " pada baris " . $e->getLine() . "</p>";
+    echo "</div>";
+    exit;
 }
