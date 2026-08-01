@@ -1,17 +1,11 @@
-# Root .htaccess
+# Root .htaccess (Production InfinityFree)
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # 1. Jika request sudah ke public/, stop rewrite
-    RewriteCond %{REQUEST_URI} ^/public/ [OR]
-    RewriteCond %{REQUEST_URI} ^/salary/public/ [OR]
-    RewriteCond %{REQUEST_URI} ^/payrun/public/
+    # 1. Jika request sudah menuju folder public/, stop rewrite
+    RewriteCond %{REQUEST_URI} ^/public/
     RewriteRule ^ - [L]
 
-    # 2. Jika request diawali dengan salary/ atau payrun/, strip prefix dan ke public/
-    RewriteRule ^salary/(.*)$ public/$1 [L,QSA]
-    RewriteRule ^payrun/(.*)$ public/$1 [L,QSA]
-
-    # 3. Semua request lainnya ke public/
+    # 2. Redirect semua request langsung ke dalam folder public/
     RewriteRule ^(.*)$ public/$1 [L,QSA]
 </IfModule>
