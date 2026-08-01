@@ -21,6 +21,7 @@
             margin: 0;
             font-size: 16px;
             text-transform: uppercase;
+            color: #000;
         }
         .header p {
             margin: 5px 0 0 0;
@@ -47,9 +48,10 @@
             text-align: left;
         }
         .data-table th {
-            background-color: #e0e0e0;
+            background-color: #f2f2f2;
             text-align: center;
             font-weight: bold;
+            color: #000;
         }
         .text-right {
             text-align: right !important;
@@ -61,19 +63,23 @@
             background-color: #f9f9f9;
             font-size: 10px;
             font-style: italic;
+            color: #000;
         }
         .footer-row th {
-            background-color: #d0d0d0;
+            background-color: #e0e0e0;
             font-size: 11px;
+            color: #000;
         }
         .type-header th {
-            background-color: #f0f0f0;
+            background-color: #e6e6e6;
             font-weight: bold;
             text-align: left !important;
+            color: #000;
         }
         .signature-area {
             width: 100%;
             margin-top: 30px;
+            page-break-inside: avoid;
         }
         .signature {
             width: 50%;
@@ -86,6 +92,12 @@
             display: inline-block;
             border-top: 1px solid #333;
             padding: 0 15px;
+        }
+        .week-header {
+            background-color: #eaeaea !important;
+        }
+        .day-header {
+            background-color: #f5f5f5 !important;
         }
     </style>
 </head>
@@ -237,6 +249,109 @@
                 <th class="text-right"><?= number_format($grandTotal['netto'], 0, ',', '.') ?></th>
             </tr>
         </tfoot>
+    </table>
+
+    <!-- Signature moved to end of document -->
+
+    <div style="page-break-before: always;"></div>
+    
+    <div class="header">
+        <h1>LAMPIRAN: REKAPITULASI ABSENSI HARIAN</h1>
+        <p>Sistem Penggajian - Bulan <?= htmlspecialchars($bulanName) ?></p>
+    </div>
+
+    <?php
+        $startDate = new DateTime($bulan . '-01');
+        $endDate = new DateTime(date('Y-m-t', strtotime($bulan . '-01')));
+        $interval = new DateInterval('P1D');
+        // We modify endDate by +1 day because DatePeriod end date is exclusive
+        $dateRange = new DatePeriod($startDate, $interval, $endDate->modify('+1 day'));
+        $dates = [];
+        $weeks = [];
+        $currentWeek = 1;
+
+        foreach ($dateRange as $date) {
+            $d = $date->format('Y-m-d');
+            $dates[] = $d;
+            $weeks[$currentWeek][] = $d;
+            // Jika hari Minggu (7), minggu berikutnya pindah pekan
+            if ($date->format('N') == 7) {
+                $currentWeek++;
+            }
+        }
+    ?>
+    <table class="data-table" style="font-size: 9px;">
+        <thead>
+            <tr>
+                <th rowspan="3" width="2%">No</th>
+                <th rowspan="3" width="12%">Nama Karyawan</th>
+                <?php foreach ($weeks as $weekNum => $weekDates): ?>
+                    <th class="week-header" colspan="<?= count($weekDates) ?>">Pekan <?= $weekNum ?></th>
+                <?php endforeach; ?>
+                <th rowspan="3" width="18%">Catatan Ketidakhadiran</th>
+            </tr>
+            <tr>
+                <?php 
+                $hariMap = ['1' => 'S', '2' => 'S', '3' => 'R', '4' => 'K', '5' => 'J', '6' => 'S', '7' => 'M'];
+                foreach ($dates as $d): 
+                    $hari = date('N', strtotime($d));
+                ?>
+                    <th class="day-header" width="<?= 68 / max(1, count($dates)) ?>%"><?= $hariMap[$hari] ?></th>
+                <?php endforeach; ?>
+            </tr>
+            <tr>
+                <?php foreach ($dates as $d): ?>
+                    <th width="<?= 68 / max(1, count($dates)) ?>%"><?= date('d', strtotime($d)) ?></th>
+                <?php endforeach; ?>
+            </tr>
+        </thead>
+        <tbody>
+            <?php 
+                $currentTypeAbs = '';
+                $no_abs = 1;
+                foreach ($items as $row): 
+                    if ($currentTypeAbs !== $row['tipe_gaji']) {
+                        $currentTypeAbs = $row['tipe_gaji'];
+                        $no_abs = 1;
+                        echo '<tr class="type-header"><th colspan="' . (count($dates) + 3) . '">KARYAWAN ' . strtoupper($currentTypeAbs) . '</th></tr>';
+                    }
+
+                    $empId = $row['id_karyawan'];
+                    // Default to empty array if no attendance data for this employee
+                    $abData = $attendanceData[$empId] ?? [];
+                    $notes = [];
+            ?>
+            <tr>
+                <td class="text-center"><?= $no_abs++ ?></td>
+                <td><?= htmlspecialchars($row['employee_name']) ?></td>
+                <?php foreach ($dates as $d): 
+                    $status = $abData[$d] ?? null;
+                    if ($status === null) {
+                        $mark = '-';
+                    } elseif ($status['hadir'] == 1) {
+                        $mark = '<span style="color: green; font-weight: bold;">v</span>';
+                    } else {
+                        $mark = '<span style="color: red; font-weight: bold;">X</span>';
+                        $catatan = trim($status['catatan'] ?? '');
+                        if ($catatan !== '') {
+                            $notes[] = date('d/m', strtotime($d)) . ': ' . $catatan;
+                        } else {
+                            $notes[] = date('d/m', strtotime($d)) . ': Alfa';
+                        }
+                    }
+                ?>
+                    <td class="text-center"><?= $mark ?></td>
+                <?php endforeach; ?>
+                <td style="font-size: 8px;"><?= htmlspecialchars(implode(', ', $notes)) ?></td>
+            </tr>
+            <?php endforeach; ?>
+            
+            <?php if (empty($items)): ?>
+            <tr>
+                <td colspan="<?= count($dates) + 3 ?>" class="text-center">Tidak ada data rincian pada periode ini.</td>
+            </tr>
+            <?php endif; ?>
+        </tbody>
     </table>
 
     <div class="signature-area">

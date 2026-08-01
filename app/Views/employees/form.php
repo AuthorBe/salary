@@ -104,7 +104,7 @@ foreach ($employees as $emp) {
                         <tr>
                             <th style="width: 20%;">Nama Karyawan <span class="text-danger">*</span></th>
                             <th style="width: 12%;">Tipe Gaji</th>
-                            <th style="width: 18%;">Gaji Pokok</th>
+                            <th style="width: 18%;" id="th-gajipokok">Gaji Pokok</th>
                             <th style="width: 18%;">Uang Hadir/Hari</th>
                             <th style="width: 18%;">Uang Bulanan</th>
                             <th style="width: 7%; text-align: center;">Aktif</th>
@@ -129,10 +129,10 @@ foreach ($employees as $emp) {
                                         <option value="bulanan" <?= $isBulanan ? 'selected' : '' ?>>Bulanan</option>
                                     </select>
                                 </td>
-                                <td data-label="Gaji Pokok (Bulanan)">
+                                <td data-label="Gaji Pokok (Bulanan)" class="td-gajipokok">
                                     <input type="text" inputmode="numeric" class="form-control input-rupiah input-gajipokok enter-nav" 
                                            name="employees[<?= $index ?>][gaji_pokok]" 
-                                           value="<?= (int)($emp['gaji_pokok'] ?? 0) ?>" <?= !$isBulanan ? 'readonly' : '' ?>>
+                                           value="<?= (int)($emp['gaji_pokok'] ?? 0) ?>" <?= !$isBulanan ? 'readonly tabindex="-1"' : '' ?>>
                                 </td>
                                 <td data-label="Uang Hadir / Hari">
                                     <input type="text" inputmode="numeric" class="form-control input-rupiah enter-nav" 
@@ -192,9 +192,9 @@ foreach ($employees as $emp) {
                 <option value="bulanan">Bulanan</option>
             </select>
         </td>
-        <td data-label="Gaji Pokok (Bulanan)">
+        <td data-label="Gaji Pokok (Bulanan)" class="td-gajipokok">
             <input type="text" inputmode="numeric" class="form-control input-rupiah input-gajipokok enter-nav" 
-                   name="employees[{index}][gaji_pokok]" value="0" readonly>
+                   name="employees[{index}][gaji_pokok]" value="0" readonly tabindex="-1">
         </td>
         <td data-label="Uang Hadir / Hari">
             <input type="text" inputmode="numeric" class="form-control input-rupiah enter-nav" 
@@ -230,6 +230,8 @@ function addRow() {
     if (typeof initRupiahInputs === 'function') {
         initRupiahInputs();
     }
+    
+    toggleGajiPokokColumn();
 }
 
 function removeRow(btn) {
@@ -253,6 +255,8 @@ function removeRow(btn) {
                 }
             }
         }
+        
+        toggleGajiPokokColumn();
     } else {
         Swal.fire({
             icon: 'warning',
@@ -271,10 +275,38 @@ document.addEventListener('change', function(e) {
         const gajiPokokInput = row.querySelector('.input-gajipokok');
         if (e.target.value === 'bulanan') {
             gajiPokokInput.removeAttribute('readonly');
+            gajiPokokInput.removeAttribute('tabindex');
         } else {
             gajiPokokInput.setAttribute('readonly', 'true');
+            gajiPokokInput.setAttribute('tabindex', '-1');
             gajiPokokInput.value = '0';
         }
+        toggleGajiPokokColumn();
     }
+});
+
+function toggleGajiPokokColumn() {
+    const selects = Array.from(document.querySelectorAll('#tableBody .tipe-gaji-select'));
+    const hasBulanan = selects.some(select => select.value === 'bulanan');
+    
+    const header = document.getElementById('th-gajipokok');
+    if (header) {
+        if (hasBulanan) header.classList.remove('d-none');
+        else header.classList.add('d-none');
+    }
+    
+    const rows = document.querySelectorAll('#tableBody tr');
+    rows.forEach(row => {
+        const td = row.querySelector('.td-gajipokok');
+        if (td) {
+            if (hasBulanan) td.classList.remove('d-none');
+            else td.classList.add('d-none');
+        }
+    });
+}
+
+// Initial toggle on page load
+document.addEventListener('DOMContentLoaded', function() {
+    toggleGajiPokokColumn();
 });
 </script>

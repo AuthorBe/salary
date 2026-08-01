@@ -19,7 +19,7 @@ class ReportController
                 DATE_FORMAT(pr.periode_akhir, '%Y-%m') as bulan,
                 COUNT(DISTINCT pi.id_karyawan) as total_karyawan,
                 SUM(pi.gaji_bersih) as total_pengeluaran,
-                SUM(pi.total_potongan_kasbon + pi.potongan_lain) as total_potongan
+                SUM(pi.total_potongan_kasbon + pi.potongan_lain + COALESCE(pi.total_penarikan_gaji, 0)) as total_potongan
             FROM penggajian pr
             JOIN rincian_penggajian pi ON pr.id = pi.id_penggajian
             WHERE pr.status = 'approved'
@@ -85,7 +85,9 @@ class ReportController
                 SUM(pi.total_upah_lembur) as total_upah_lembur,
                 SUM(pi.tunjangan_bulanan) as tunjangan_bulanan,
                 SUM(pi.tunjangan_lain) as tunjangan_lain,
+                SUM(pi.nominal_pembulatan) as nominal_pembulatan,
                 SUM(pi.total_potongan_kasbon) as total_potongan_kasbon,
+                SUM(pi.total_penarikan_gaji) as total_penarikan_gaji,
                 SUM(pi.potongan_lain) as potongan_lain,
                 SUM(pi.gaji_bersih) as gaji_bersih
             FROM rincian_penggajian pi
@@ -106,6 +108,24 @@ class ReportController
         }
 
         $bulanName = date('F Y', strtotime($bulan . '-01'));
+        $startDate = $bulan . '-01';
+        $endDate = date('Y-m-t', strtotime($startDate));
+
+        $stmtAbsensi = $db->prepare("
+            SELECT id_karyawan, date, hadir, catatan
+            FROM absensi
+            WHERE date >= ? AND date <= ?
+        ");
+        $stmtAbsensi->execute([$startDate, $endDate]);
+        $absensiRaw = $stmtAbsensi->fetchAll();
+
+        $attendanceData = [];
+        foreach ($absensiRaw as $ab) {
+            $attendanceData[$ab['id_karyawan']][$ab['date']] = [
+                'hadir' => (int)$ab['hadir'],
+                'catatan' => $ab['catatan']
+            ];
+        }
 
         ob_start();
         include APP_ROOT . '/app/Views/reports/pdf_rekap_bulanan.php';

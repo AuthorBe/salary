@@ -203,28 +203,7 @@ class PayrollController
                     $monthlyAllowance = (float)$emp['tunjangan_bulanan'];
                 }
 
-                // Calculate Debts
-                $activeDebts = $debtModel->getActiveDebtsByEmployeeId($emp['id']);
-                $debtsDeductionTotal = 0.00;
-                $debtsDetails = [];
-                
-                foreach ($activeDebts as $debt) {
-                    $deduction = (float)$debt['potongan_bawaan'];
-                    $remaining = (float)$debt['sisa_nominal'];
-                    if ($deduction > $remaining) {
-                        $deduction = $remaining;
-                    }
-                    if ($deduction > 0) {
-                        $debtsDeductionTotal += $deduction;
-                        $debtsDetails[] = [
-                            'id_kasbon' => $debt['id'],
-                            'keterangan' => $debt['keterangan'],
-                            'nominal' => $deduction
-                        ];
-                    }
-                }
-
-                // Calculate Penarikan Gaji
+                // Calculate Penarikan Gaji (Done before Kasbon so we know available net)
                 $penarikanTotal = 0.00;
                 $penarikanDetails = [];
                 if ($emp['tipe_gaji'] === 'bulanan' && $type === 'monthly') {
@@ -239,6 +218,37 @@ class PayrollController
                     }
                 }
 
+                // Calculate Available Net for Debts
+                $netBeforeDeductions = $baseSalary + $attendancePayTotal + $prodPayTotal + $overtimePayTotal + $monthlyAllowance;
+                $maxAvailableForDebts = $netBeforeDeductions - $penarikanTotal;
+                if ($maxAvailableForDebts < 0) $maxAvailableForDebts = 0;
+
+                $activeDebts = $debtModel->getActiveDebtsByEmployeeId($emp['id']);
+                $debtsDeductionTotal = 0.00;
+                $debtsDetails = [];
+                $kasbonAdjustedDown = false;
+                
+                foreach ($activeDebts as $debt) {
+                    $deduction = (float)$debt['potongan_bawaan'];
+                    $remaining = (float)$debt['sisa_nominal'];
+                    if ($deduction > $remaining) {
+                        $deduction = $remaining;
+                    }
+                    if ($deduction > $maxAvailableForDebts) {
+                        $deduction = $maxAvailableForDebts;
+                        $kasbonAdjustedDown = true;
+                    }
+                    if ($deduction > 0) {
+                        $debtsDeductionTotal += $deduction;
+                        $maxAvailableForDebts -= $deduction;
+                        $debtsDetails[] = [
+                            'id_kasbon' => $debt['id'],
+                            'keterangan' => $debt['keterangan'],
+                            'nominal' => $deduction
+                        ];
+                    }
+                }
+
                 // Initial Net Salary
                 $netSalary = $baseSalary + $attendancePayTotal + $prodPayTotal + $overtimePayTotal + $monthlyAllowance - $debtsDeductionTotal - $penarikanTotal;
                 if ($netSalary < 0) {
@@ -248,7 +258,8 @@ class PayrollController
                 // Build details JSON
                 $detailsJson = json_encode([
                     'debts' => $debtsDetails,
-                    'penarikan' => $penarikanDetails
+                    'penarikan' => $penarikanDetails,
+                    'kasbon_adjusted_down' => $kasbonAdjustedDown
                 ]);
 
                 // Insert Payroll Item
@@ -272,6 +283,34 @@ class PayrollController
                 redirect('/payroll');
                 return;
             }
+
+            // 3. Lock Attendances, Productions, and Penarikan Gaji to this draft
+            $lockAtt = $db->prepare("
+                UPDATE absensi 
+                SET id_penggajian = ? 
+                WHERE id_penggajian IS NULL 
+                  AND date BETWEEN ? AND ?
+                  AND id_karyawan IN (SELECT id_karyawan FROM rincian_penggajian WHERE id_penggajian = ? AND is_excluded = 0)
+            ");
+            $lockAtt->execute([$runId, $period_start, $period_end, $runId]);
+
+            $lockProd = $db->prepare("
+                UPDATE produksi 
+                SET id_penggajian = ? 
+                WHERE id_penggajian IS NULL 
+                  AND date BETWEEN ? AND ?
+                  AND id_karyawan IN (SELECT id_karyawan FROM rincian_penggajian WHERE id_penggajian = ? AND is_excluded = 0)
+            ");
+            $lockProd->execute([$runId, $period_start, $period_end, $runId]);
+
+            $lockPenarikan = $db->prepare("
+                UPDATE penarikan_gaji 
+                SET id_penggajian = ? 
+                WHERE id_penggajian IS NULL 
+                  AND tanggal <= ?
+                  AND id_karyawan IN (SELECT id_karyawan FROM rincian_penggajian WHERE id_penggajian = ? AND is_excluded = 0)
+            ");
+            $lockPenarikan->execute([$runId, $period_end, $runId]);
 
             $db->commit();
             $_SESSION['flash_success'] = 'Draft Payroll berhasil dibuat. Silakan periksa rincian sebelum menyetujui.';
@@ -299,6 +338,13 @@ class PayrollController
         }
 
         $items = $piModel->getByRunId($id);
+
+        $debtModel = new \App\Models\Debt();
+        foreach ($items as &$item) {
+            $activeDebts = $debtModel->getActiveDebtsByEmployeeId((int)$item['id_karyawan']);
+            $item['total_active_kasbon'] = array_sum(array_column($activeDebts, 'sisa_nominal'));
+        }
+        unset($item);
 
         view('payroll/preview', [
             'title' => 'Preview Payroll',
@@ -334,31 +380,34 @@ class PayrollController
             return;
         }
 
-        // Proporsikan nominal potongan ke rincian_json jika ada
         $details = json_decode($item['rincian_json'] ?? '[]', true) ?: [];
-        if (!empty($details['debts']) && is_array($details['debts'])) {
-            $totalOrig = 0;
-            foreach ($details['debts'] as $d) {
-                $totalOrig += (float)$d['nominal'];
-            }
-            if ($totalOrig > 0) {
-                $ratio = $debtDeduction / $totalOrig;
-                foreach ($details['debts'] as &$d) {
-                    $d['nominal'] = round((float)$d['nominal'] * $ratio, 2);
-                }
-                unset($d);
-            }
-        } elseif ($debtDeduction > 0) {
+        
+        if ($debtDeduction > 0) {
             $debtModel = new \App\Models\Debt();
             $activeDebts = $debtModel->getActiveDebtsByEmployeeId((int)$item['id_karyawan']);
-            if (!empty($activeDebts)) {
-                $details['debts'] = [
-                    [
-                        'id_kasbon' => $activeDebts[0]['id'],
-                        'nominal' => $debtDeduction
-                    ]
-                ];
+            $totalActiveKasbon = array_sum(array_column($activeDebts, 'sisa_nominal'));
+            
+            if ($debtDeduction > $totalActiveKasbon) {
+                $_SESSION['flash_error'] = 'Gagal Menyimpan! Nominal potongan kasbon (Rp ' . number_format($debtDeduction, 0, ',', '.') . ') melebihi batas maksimal sisa hutang karyawan (Rp ' . number_format($totalActiveKasbon, 0, ',', '.') . '). Silakan kurangi nominalnya agar tidak terjadi kerugian pada karyawan.';
+                redirect('/payroll/preview?id=' . $runId);
+                return;
             }
+
+            $newDebtsDetails = [];
+            $remainingDeduct = $debtDeduction;
+            foreach ($activeDebts as $ad) {
+                if ($remainingDeduct <= 0) break;
+                $sisa = (float)$ad['sisa_nominal'];
+                $potong = min($sisa, $remainingDeduct);
+                $newDebtsDetails[] = [
+                    'id_kasbon' => $ad['id'],
+                    'nominal' => $potong
+                ];
+                $remainingDeduct -= $potong;
+            }
+            $details['debts'] = $newDebtsDetails;
+        } else {
+            $details['debts'] = []; // Kosongkan jika 0
         }
         $newDetailsJson = json_encode($details);
 
@@ -368,10 +417,14 @@ class PayrollController
         $prod = (float)$item['total_upah_produksi'];
         $lembur = (float)$item['total_upah_lembur'];
         $monthly = (float)$item['tunjangan_bulanan'];
+        $penarikan = (float)($item['total_penarikan_gaji'] ?? 0);
 
-        $newNet = $base + $att + $prod + $lembur + $monthly + $otherAllowances - $debtDeduction - $otherDeductions + $roundingAmount;
+        $newNet = $base + $att + $prod + $lembur + $monthly + $otherAllowances - $debtDeduction - $otherDeductions - $penarikan + $roundingAmount;
+        
         if ($newNet < 0) {
-            $newNet = 0;
+            $_SESSION['flash_error'] = 'Gagal Menyimpan! Total potongan melebihi total pendapatan. Gaji tidak boleh minus.';
+            redirect('/payroll/preview?id=' . $runId);
+            return;
         }
 
         $update = $db->prepare("
@@ -413,10 +466,15 @@ class PayrollController
         try {
             $db->beginTransaction();
 
-            // 1. Hapus rincian_penggajian
+            // 1. Buka kembali kunci Absensi, Produksi, dan Penarikan
+            $db->prepare("UPDATE absensi SET id_penggajian = NULL WHERE id_penggajian = ?")->execute([$runId]);
+            $db->prepare("UPDATE produksi SET id_penggajian = NULL WHERE id_penggajian = ?")->execute([$runId]);
+            $db->prepare("UPDATE penarikan_gaji SET id_penggajian = NULL WHERE id_penggajian = ?")->execute([$runId]);
+
+            // 2. Hapus rincian_penggajian
             $db->prepare("DELETE FROM rincian_penggajian WHERE id_penggajian = ?")->execute([$runId]);
 
-            // 2. Hapus penggajian
+            // 3. Hapus penggajian
             $prModel->delete($runId);
 
             $db->commit();
@@ -460,25 +518,7 @@ class PayrollController
             $stmt = $db->prepare("UPDATE penggajian SET status = 'approved', disetujui_pada = NOW(), disetujui_oleh = ? WHERE id = ?");
             $stmt->execute([$user['id'], $runId]);
 
-            // 2. Lock Attendances and Productions
-            $lockAtt = $db->prepare("
-                UPDATE absensi 
-                SET id_penggajian = ? 
-                WHERE id_penggajian IS NULL 
-                  AND date BETWEEN ? AND ?
-                  AND id_karyawan IN (SELECT id_karyawan FROM rincian_penggajian WHERE id_penggajian = ? AND is_excluded = 0)
-            ");
-            $lockAtt->execute([$runId, $run['periode_awal'], $run['periode_akhir'], $runId]);
-
-            $lockProd = $db->prepare("
-                UPDATE produksi 
-                SET id_penggajian = ? 
-                WHERE id_penggajian IS NULL 
-                  AND date BETWEEN ? AND ?
-                  AND id_karyawan IN (SELECT id_karyawan FROM rincian_penggajian WHERE id_penggajian = ? AND is_excluded = 0)
-            ");
-            $lockProd->execute([$runId, $run['periode_awal'], $run['periode_akhir'], $runId]);
-
+            // (Penguncian absensi dan produksi sudah dilakukan saat pembuatan draft di metode generate)
             // 3. Process Debts
             $piModel = new PayrollItem();
             $items = $piModel->getByRunId($runId);
@@ -705,8 +745,51 @@ class PayrollController
         $catatan = trim($_POST['catatan_pengecualian'] ?? '');
 
         $db = getDB();
-        $stmt = $db->prepare("UPDATE rincian_penggajian SET is_excluded = ?, catatan_pengecualian = ? WHERE id = ? AND id_penggajian = ?");
-        $stmt->execute([$isExcluded, $catatan, $itemId, $runId]);
+        $stmtItem = $db->prepare("SELECT id_karyawan FROM rincian_penggajian WHERE id = ? AND id_penggajian = ?");
+        $stmtItem->execute([$itemId, $runId]);
+        $item = $stmtItem->fetch();
+        
+        if (!$item) {
+            $_SESSION['flash_error'] = 'Data rincian tidak ditemukan.';
+            redirect('/payroll/preview?id=' . $runId);
+            return;
+        }
+        
+        $stmtRun = $db->prepare("SELECT periode_awal, periode_akhir FROM penggajian WHERE id = ?");
+        $stmtRun->execute([$runId]);
+        $run = $stmtRun->fetch();
+
+        try {
+            $db->beginTransaction();
+
+            // Update status pengecualian
+            $stmt = $db->prepare("UPDATE rincian_penggajian SET is_excluded = ?, catatan_pengecualian = ? WHERE id = ?");
+            $stmt->execute([$isExcluded, $catatan, $itemId]);
+
+            $empId = (int)$item['id_karyawan'];
+
+            if ($isExcluded) {
+                // Karyawan dikecualikan: Lepas kunci absensinya agar bisa ditarik payroll lain
+                $db->prepare("UPDATE absensi SET id_penggajian = NULL WHERE id_penggajian = ? AND id_karyawan = ?")->execute([$runId, $empId]);
+                $db->prepare("UPDATE produksi SET id_penggajian = NULL WHERE id_penggajian = ? AND id_karyawan = ?")->execute([$runId, $empId]);
+                $db->prepare("UPDATE penarikan_gaji SET id_penggajian = NULL WHERE id_penggajian = ? AND id_karyawan = ?")->execute([$runId, $empId]);
+            } else {
+                // Batal Kecuali: Kunci kembali absensinya ke draf ini
+                $db->prepare("UPDATE absensi SET id_penggajian = ? WHERE id_penggajian IS NULL AND id_karyawan = ? AND date BETWEEN ? AND ?")
+                   ->execute([$runId, $empId, $run['periode_awal'], $run['periode_akhir']]);
+                $db->prepare("UPDATE produksi SET id_penggajian = ? WHERE id_penggajian IS NULL AND id_karyawan = ? AND date BETWEEN ? AND ?")
+                   ->execute([$runId, $empId, $run['periode_awal'], $run['periode_akhir']]);
+                $db->prepare("UPDATE penarikan_gaji SET id_penggajian = ? WHERE id_penggajian IS NULL AND id_karyawan = ? AND tanggal <= ?")
+                   ->execute([$runId, $empId, $run['periode_akhir']]);
+            }
+
+            $db->commit();
+        } catch (\Exception $e) {
+            $db->rollBack();
+            $_SESSION['flash_error'] = 'Terjadi kesalahan sistem: ' . $e->getMessage();
+            redirect('/payroll/preview?id=' . $runId);
+            return;
+        }
 
         $_SESSION['flash_success'] = $isExcluded ? 'Karyawan berhasil dikecualikan.' : 'Pengecualian karyawan dibatalkan.';
         redirect('/payroll/preview?id=' . $runId);

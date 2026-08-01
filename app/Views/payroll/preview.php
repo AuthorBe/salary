@@ -206,7 +206,18 @@ foreach ($includedItems as $it) {
                                 </div>
                                 <div class="text-muted d-flex flex-column gap-1" style="font-size: 0.75rem;">
                                     <?php if (($it['total_potongan_kasbon'] ?? 0) > 0): ?>
-                                        <div class="d-flex justify-content-between"><span>Kasbon</span> <span class="text-danger"><?= formatRupiah((int)$it['total_potongan_kasbon']) ?></span></div>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span>
+                                                Kasbon 
+                                                <?php 
+                                                $rincian = json_decode($it['rincian_json'] ?? '[]', true) ?: [];
+                                                if (!empty($rincian['kasbon_adjusted_down'])): 
+                                                ?>
+                                                    <i class="bi bi-exclamation-circle-fill text-warning ms-1" style="font-size: 0.7rem;" data-bs-toggle="tooltip" title="Angka diturunkan otomatis karena gaji tidak cukup untuk membayar cicilan aslinya."></i>
+                                                <?php endif; ?>
+                                            </span> 
+                                            <span class="text-danger"><?= formatRupiah((int)$it['total_potongan_kasbon']) ?></span>
+                                        </div>
                                     <?php endif; ?>
                                     <?php if (($it['total_penarikan_gaji'] ?? 0) > 0): ?>
                                         <div class="d-flex justify-content-between"><span>Penarikan</span> <span class="text-danger"><?= formatRupiah((int)$it['total_penarikan_gaji']) ?></span></div>
@@ -240,12 +251,14 @@ foreach ($includedItems as $it) {
                                             data-tbulanan="<?= (int)$it['tunjangan_bulanan'] ?>"
                                             data-lembur="<?= (int)($it['total_upah_lembur'] ?? 0) ?>"
                                             data-debt="<?= (int)$it['total_potongan_kasbon'] ?>"
+                                            data-penarikan="<?= (int)($it['total_penarikan_gaji'] ?? 0) ?>"
                                             data-bonus="<?= (int)$it['tunjangan_lain'] ?>"
                                             data-bnotes="<?= e($it['catatan_tunjangan_lain']) ?>"
                                             data-ded="<?= (int)$it['potongan_lain'] ?>"
                                             data-dnotes="<?= e($it['catatan_potongan_lain']) ?>"
                                             data-round="<?= (int)$it['nominal_pembulatan'] ?>"
                                             data-net="<?= (int)$it['gaji_bersih'] ?>"
+                                            data-maxdebt="<?= (int)$it['total_active_kasbon'] ?>"
                                             data-bs-toggle="modal" data-bs-target="#modalAdjust">
                                         <i class="bi bi-pencil-square"></i> Sesuaikan
                                     </button>
@@ -381,9 +394,16 @@ foreach ($includedItems as $it) {
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="p-3 bg-danger-subtle border border-danger-subtle rounded-3 text-danger">
+                            <div class="p-3 bg-danger-subtle border border-danger-subtle rounded-3 text-danger h-100">
                                 <label for="adj_debt_input" class="small fw-bold mb-1 d-block text-danger">POTONGAN HUTANG / KASBON (RP)</label>
                                 <input type="text" class="form-control input-rupiah border-danger-subtle text-danger fw-bold fs-4 bg-white enter-nav" id="adj_debt_input" name="total_potongan_kasbon" value="0" onkeyup="calculateNet()">
+                                
+                                <div id="adj_penarikan_container" class="mt-3 pt-2 border-top border-danger-subtle d-none">
+                                    <div class="d-flex justify-content-between small fw-bold">
+                                        <span>PENARIKAN (TETAP)</span>
+                                        <span id="adj_penarikan_text">Rp 0</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -442,6 +462,8 @@ foreach ($includedItems as $it) {
 <script>
 let currentBase = 0;
 let currentDebt = 0;
+let currentPenarikan = 0;
+let currentMaxDebt = 0;
 
 document.addEventListener('DOMContentLoaded', function() {
     const editBtns = document.querySelectorAll('.btn-edit-item');
@@ -450,10 +472,19 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('adj_id').value = this.dataset.id;
             document.getElementById('adj_name').innerText = '- ' + this.dataset.name;
             
-            currentBase = parseInt(this.dataset.base);
-            currentDebt = parseInt(this.dataset.debt);
+            currentBase = parseInt(this.dataset.base) || 0;
+            currentDebt = parseInt(this.dataset.debt) || 0;
+            currentPenarikan = parseInt(this.dataset.penarikan) || 0;
+            currentMaxDebt = parseInt(this.dataset.maxdebt) || 0;
             
             document.getElementById('adj_base_text').innerText = formatRupiahJs(currentBase);
+
+            if (currentPenarikan > 0) {
+                document.getElementById('adj_penarikan_container').classList.remove('d-none');
+                document.getElementById('adj_penarikan_text').innerText = formatRupiahJs(currentPenarikan);
+            } else {
+                document.getElementById('adj_penarikan_container').classList.add('d-none');
+            }
             
             let breakdownHtml = '';
             const gp = parseInt(this.dataset.gajipokok) || 0;
@@ -488,7 +519,114 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('exc_name').innerText = '- ' + this.dataset.name;
         });
     });
+
+    const adjustForm = document.querySelector('#modalAdjust form');
+    if (adjustForm) {
+        adjustForm.addEventListener('submit', function(e) {
+            const parseRupiah = (val) => parseInt(val.toString().replace(/[^0-9]/g, '') || 0);
+            
+            // Check if net < 0 first
+            let debtVal = parseRupiah(document.getElementById('adj_debt_input').value);
+            let bonus = parseRupiah(document.getElementById('adj_bonus').value);
+            let ded = parseRupiah(document.getElementById('adj_ded').value);
+            let round = parseRupiah(document.getElementById('adj_round').value);
+            let net = currentBase - debtVal - currentPenarikan + bonus - ded + round;
+            
+            if (net < 0) {
+                e.preventDefault();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Gagal!', 'Total potongan melebihi total pendapatan. Gaji tidak boleh minus.', 'error');
+                } else {
+                    alert('Gagal! Total potongan melebihi total pendapatan. Gaji tidak boleh minus.');
+                }
+                return false;
+            }
+
+            if (debtVal > currentMaxDebt) {
+                e.preventDefault();
+                let excess = debtVal - currentMaxDebt;
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Potongan Kasbon Berlebih!',
+                        html: `
+                            <div class="mb-3 text-secondary text-center">
+                                Sisa hutang/kasbon karyawan ini hanya <strong>${formatRupiahJs(currentMaxDebt)}</strong>.
+                            </div>
+                            <div class="p-3 bg-danger-subtle border border-danger-subtle rounded-3 text-danger mb-3 text-center">
+                                Kelebihan potongan sebesar <strong>${formatRupiahJs(excess)}</strong><br>akan otomatis dipindahkan ke kolom <b>Pemotongan Manual Lain</b>.
+                            </div>
+                            <div class="text-dark fw-semibold text-center mb-1">Lanjutkan proses simpan?</div>
+                            <div class="text-muted small text-center">(Tekan <kbd>Enter</kbd> untuk Simpan, <kbd>Backspace</kbd> untuk Batal)</div>
+                        `,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        reverseButtons: true,
+                        confirmButtonText: '<i class="bi bi-check-circle me-1"></i> Ya, Alokasikan & Simpan',
+                        cancelButtonText: '<i class="bi bi-x-circle me-1"></i> Batal',
+                        customClass: {
+                            popup: 'rounded-4 shadow-lg border-0',
+                            confirmButton: 'btn btn-primary rounded-pill px-4 mx-2',
+                            cancelButton: 'btn btn-outline-danger rounded-pill px-4 mx-2',
+                        },
+                        buttonsStyling: false,
+                        allowEnterKey: false,
+                        didOpen: (popup) => {
+                            window._swalKeyHandler = function(e) {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    Swal.clickConfirm();
+                                } else if (e.key === 'Backspace') {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    Swal.close();
+                                }
+                            };
+                            // Gunakan parameter ketiga 'true' (useCapture) agar event ditangkap lebih dulu sebelum sampai ke modal/form di bawahnya
+                            document.addEventListener('keydown', window._swalKeyHandler, true);
+                        },
+                        willClose: () => {
+                            if (window._swalKeyHandler) {
+                                document.removeEventListener('keydown', window._swalKeyHandler, true);
+                            }
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            applyExcessAndSubmit(excess, adjustForm);
+                        }
+                    });
+                } else {
+                    if (confirm(`Sisa kasbon karyawan ini hanya ${formatRupiahJs(currentMaxDebt)}.\nKelebihan potongan sebesar ${formatRupiahJs(excess)} akan otomatis dialokasikan ke 'Pemotongan Manual Lain'.\n\nLanjutkan?`)) {
+                        applyExcessAndSubmit(excess, adjustForm);
+                    }
+                }
+            }
+        });
+    }
 });
+
+function applyExcessAndSubmit(excess, formEl) {
+    const parseRupiah = (val) => parseInt(val.toString().replace(/[^0-9]/g, '') || 0);
+    let debtInput = document.getElementById('adj_debt_input');
+    let dedInput = document.getElementById('adj_ded');
+    let dnotesInput = document.getElementById('adj_dnotes');
+    
+    debtInput.value = formatRupiahJs(currentMaxDebt).replace('Rp ', '');
+    
+    let currentDed = parseRupiah(dedInput.value);
+    dedInput.value = formatRupiahJs(currentDed + excess).replace('Rp ', '');
+    
+    let currentNote = dnotesInput.value.trim();
+    if (currentNote) {
+        dnotesInput.value = currentNote + ' & Sisa lebih potong kasbon';
+    } else {
+        dnotesInput.value = 'Sisa lebih potong kasbon';
+    }
+    
+    calculateNet();
+    formEl.submit();
+}
 
 function calculateNet() {
     const parseRupiah = (val) => parseInt(val.toString().replace(/[^0-9]/g, '') || 0);
@@ -498,23 +636,33 @@ function calculateNet() {
     let ded = parseRupiah(document.getElementById('adj_ded').value);
     let round = parseRupiah(document.getElementById('adj_round').value);
     
-    let net = currentBase - debt + bonus - ded + round;
-    document.getElementById('adj_net_final').innerText = formatRupiahJs(net);
+    let net = currentBase - debt - currentPenarikan + bonus - ded + round;
+    let finalEl = document.getElementById('adj_net_final');
+    finalEl.innerText = formatRupiahJs(net);
+    
+    if (net < 0) {
+        finalEl.classList.remove('text-success');
+        finalEl.classList.add('text-danger');
+    } else {
+        finalEl.classList.remove('text-danger');
+        finalEl.classList.add('text-success');
+    }
 }
 
 function formatRupiahJs(angka) {
-    let number_string = angka.toString().replace(/[^,\d]/g, ''),
+    let isNegative = angka < 0;
+    let number_string = Math.abs(angka).toString().replace(/[^,\d]/g, ''),
         split = number_string.split(','),
         sisa = split[0].length % 3,
         rupiah = split[0].substr(0, sisa),
         ribuan = split[0].substr(sisa).match(/\d{3}/gi);
 
     if (ribuan) {
-        separator = sisa ? '.' : '';
+        let separator = sisa ? '.' : '';
         rupiah += separator + ribuan.join('.');
     }
     rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
-    return 'Rp ' + rupiah;
+    return (isNegative ? '- Rp ' : 'Rp ') + rupiah;
 }
 </script>
 <?php endif; ?>
