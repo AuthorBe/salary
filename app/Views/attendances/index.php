@@ -23,14 +23,14 @@
                 <div class="mb-3 text-success">
                     <i class="bi bi-check-circle-fill" style="font-size: 4rem;"></i>
                 </div>
-                <h4 class="fw-bold mb-2">Berhasil!</h4>
+                <h4 class="fw-bold mb-2"><?= e($_SESSION['flash_title'] ?? 'Berhasil!') ?></h4>
                 <p class="text-muted mb-4"><?= $_SESSION['flash_success'] ?></p>
                 <button type="button" class="btn btn-primary px-5 rounded-pill shadow-sm" onclick="document.getElementById('attendance-success-overlay').remove()">Oke, Tutup</button>
             </div>
         </div>
         <style>@keyframes popIn { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }</style>
     </div>
-    <?php unset($_SESSION['flash_success']); ?>
+    <?php unset($_SESSION['flash_success'], $_SESSION['flash_title']); ?>
 <?php endif; ?>
 
 <?php if (isset($_SESSION['flash_error'])): ?>
@@ -44,17 +44,18 @@
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body p-4">
         <form class="row g-3 align-items-end" id="dateFilterForm" 
-              hx-get="<?= url('/attendances/form') ?>" 
-              hx-target="#attendance-form-container" 
-              hx-trigger="change from:#date">
+              action="<?= url('/attendances') ?>" 
+              method="GET"
+              onsubmit="event.preventDefault(); loadAttendanceDate(document.getElementById('date').value);">
             
             <div class="col-md-4">
                 <label for="date" class="form-label fw-semibold">Pilih Tanggal</label>
-                <input type="date" class="form-control" id="date" name="date" value="<?= e($date) ?>" required max="<?= date('Y-m-d') ?>">
+                <input type="date" class="form-control" id="date" name="date" value="<?= e($date) ?>" required
+                       onchange="loadAttendanceDate(this.value);">
             </div>
             <div class="col-md-8">
                 <!-- HTMX Indicator -->
-                <div class="htmx-indicator spinner-border spinner-border-sm text-primary" role="status">
+                <div class="htmx-indicator spinner-border spinner-border-sm text-primary" id="dateSpinner" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
             </div>
@@ -63,10 +64,62 @@
 </div>
 
 <!-- Tempat memuat form checklist karyawan (SSR Initial Load + HTMX Update on Date Change) -->
-<div id="attendance-form-container">
+<div id="attendance-form-container"
+     hx-get="<?= url('/attendances/form') ?>"
+     hx-target="#attendance-form-container"
+     hx-swap="innerHTML"
+     hx-trigger="attendanceSaved from:body">
     <?php view('attendances/_form', [
         'date'        => $date,
         'employees'   => $employees,
         'attendances' => $attendances
     ], 'partials'); ?>
 </div>
+
+<script>
+function loadAttendanceDate(dateVal) {
+    if (!dateVal) return;
+    
+    // 1. Update URL di browser bar secara instan
+    var newUrl = '<?= url('/attendances') ?>?date=' + encodeURIComponent(dateVal);
+    window.history.pushState({ date: dateVal }, '', newUrl);
+
+    // 2. Tampilkan indicator loading
+    var spinner = document.getElementById('dateSpinner');
+    if (spinner) spinner.classList.add('htmx-request');
+
+    // 3. Jalankan HTMX AJAX secara eksplisit untuk memperbarui container form
+    if (window.htmx) {
+        htmx.ajax('GET', '<?= url('/attendances/form') ?>?date=' + encodeURIComponent(dateVal), {
+            target: '#attendance-form-container',
+            swap: 'innerHTML'
+        }).then(function() {
+            if (spinner) spinner.classList.remove('htmx-request');
+        });
+    } else {
+        window.location.href = newUrl;
+    }
+}
+
+// Tangani tombol Back / Forward browser
+window.addEventListener('popstate', function(evt) {
+    var urlParams = new URLSearchParams(window.location.search);
+    var dateVal = urlParams.get('date');
+    if (dateVal) {
+        var dateInput = document.getElementById('date');
+        if (dateInput) dateInput.value = dateVal;
+        loadAttendanceDate(dateVal);
+    }
+});
+
+// Pastikan HTMX menyertakan tanggal yang aktif saat trigger attendanceSaved
+document.body.addEventListener('htmx:configRequest', function(evt) {
+    var container = document.getElementById('attendance-form-container');
+    if (evt.detail.elt === container || (evt.detail.elt && evt.detail.elt.closest('#attendance-form-container') === container)) {
+        var dateInput = document.getElementById('date');
+        if (dateInput && dateInput.value) {
+            evt.detail.parameters['date'] = dateInput.value;
+        }
+    }
+});
+</script>

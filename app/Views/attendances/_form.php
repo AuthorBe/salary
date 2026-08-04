@@ -31,8 +31,8 @@
                   method="POST"
                   action="<?= url('/attendances/store') ?>"
                   hx-post="<?= url('/attendances/store') ?>" 
-                  hx-target="#attendance-alert" 
-                  hx-swap="innerHTML">
+                  hx-target="body" 
+                  hx-swap="beforeend">
                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                 <input type="hidden" name="date" value="<?= e($date) ?>">
                 
@@ -41,6 +41,7 @@
                         <thead class="table-light text-secondary">
                             <tr>
                                 <th scope="col" class="ps-4 fw-semibold" style="width: 100px;">Hadir</th>
+                                <th scope="col" class="fw-semibold" style="width: 90px;">Telat</th>
                                 <th scope="col" class="fw-semibold">Nama Karyawan</th>
                                 <th scope="col" class="fw-semibold">Tipe Gaji</th>
                                 <th scope="col" class="pe-4 fw-semibold">Keterangan Tidak Hadir</th>
@@ -48,9 +49,10 @@
                         </thead>
                         <tbody class="border-top-0">
                             <?php foreach ($employees as $emp): ?>
-                                <?php 
+                        <?php 
                                     $attData   = $attendances[$emp['id']] ?? null;
                                     $isPresent = $attData !== null ? (is_array($attData) ? (bool)$attData['hadir'] : (bool)$attData) : true;
+                                    $isTelat   = $attData !== null && is_array($attData) ? (bool)($attData['telat'] ?? false) : false;
                                     $notes     = $attData !== null && is_array($attData) ? ($attData['catatan'] ?? '') : '';
                                 ?>
                                 <tr>
@@ -62,6 +64,20 @@
                                                    data-emp-id="<?= $emp['id'] ?>"
                                                    <?= $isPresent ? 'checked' : '' ?>
                                                    style="width: 2.5em; height: 1.25em; cursor: pointer;">
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="form-check mb-0 ps-4">
+                                            <input class="form-check-input telat-check" type="checkbox"
+                                                   name="telat[]" value="<?= $emp['id'] ?>"
+                                                   id="telat_<?= $emp['id'] ?>"
+                                                   data-emp-id="<?= $emp['id'] ?>"
+                                                   <?= $isTelat ? 'checked' : '' ?>
+                                                   <?= !$isPresent ? 'disabled' : '' ?>
+                                                   style="width: 1.1em; height: 1.1em; cursor: pointer; accent-color: #fd7e14;">
+                                            <label class="form-check-label text-warning-emphasis fw-semibold small" for="telat_<?= $emp['id'] ?>" style="cursor: pointer;">
+                                                <i class="bi bi-clock-history"></i>
+                                            </label>
                                         </div>
                                     </td>
                                     <td>
@@ -107,16 +123,30 @@
                 sw.onchange = function() {
                     const empId = this.getAttribute('data-emp-id');
                     const notesInput = document.getElementById('notes_' + empId);
+                    const telatCheck = document.getElementById('telat_' + empId);
                     if (notesInput) {
                         if (this.checked) {
                             notesInput.disabled = true;
                             notesInput.style.opacity = '0.45';
                             notesInput.style.backgroundColor = '#f8fafc';
+                            // Enable telat checkbox saat hadir
+                            if (telatCheck) {
+                                telatCheck.disabled = false;
+                                telatCheck.style.opacity = '1';
+                                telatCheck.style.cursor = 'pointer';
+                            }
                         } else {
                             notesInput.disabled = false;
                             notesInput.style.opacity = '1';
                             notesInput.style.backgroundColor = '#ffffff';
                             notesInput.focus();
+                            // Disable & uncheck telat checkbox saat tidak hadir
+                            if (telatCheck) {
+                                telatCheck.checked = false;
+                                telatCheck.disabled = true;
+                                telatCheck.style.opacity = '0.4';
+                                telatCheck.style.cursor = 'not-allowed';
+                            }
                         }
                     }
                 };

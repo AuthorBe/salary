@@ -25,7 +25,8 @@ class RekapController
             SELECT 
                 k.id, k.name, k.tipe_gaji,
                 SUM(a.hadir) as total_hadir,
-                SUM(CASE WHEN a.hadir = 0 AND a.catatan != '' THEN 1 ELSE 0 END) as total_absen
+                SUM(CASE WHEN a.hadir = 0 AND a.catatan != '' THEN 1 ELSE 0 END) as total_absen,
+                SUM(CASE WHEN a.hadir = 1 AND a.telat = 1 THEN 1 ELSE 0 END) as total_telat
             FROM karyawan k
             LEFT JOIN absensi a ON k.id = a.id_karyawan AND a.date BETWEEN ? AND ?
             WHERE k.aktif = 1
@@ -168,7 +169,7 @@ class RekapController
 
         $empData = null;
         $stats = [
-            'hadir' => 0, 'absen' => 0, 'produksi_reguler' => 0, 'uang_lembur' => 0, 'kasbon_sisa' => 0
+            'hadir' => 0, 'absen' => 0, 'telat' => 0, 'produksi_reguler' => 0, 'uang_lembur' => 0, 'kasbon_sisa' => 0
         ];
         $logs = [];
 
@@ -181,8 +182,12 @@ class RekapController
                 $attLogs = $attStmt->fetchAll();
 
                 foreach ($attLogs as $a) {
-                    if ($a['hadir'] == 1) $stats['hadir']++;
-                    else if ($a['catatan']) $stats['absen']++;
+                    if ($a['hadir'] == 1) {
+                        $stats['hadir']++;
+                        if ($a['telat'] == 1) $stats['telat']++;
+                    } else if ($a['catatan']) {
+                        $stats['absen']++;
+                    }
                     
                     if ($empData['tipe_gaji'] === 'bulanan' && $a['lembur_nominal'] > 0) {
                         $stats['uang_lembur'] += $a['lembur_nominal'];

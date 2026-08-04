@@ -58,9 +58,12 @@ class AttendanceController
         $date       = $_POST['date'] ?? date('Y-m-d');
         $presentIds = $_POST['hadir'] ?? []; // Array of employee_ids yang diceklis
         $notesMap   = $_POST['catatan'] ?? [];      // Array of catatan indexed by id_karyawan
+        $telatIds   = $_POST['telat'] ?? [];        // Array of employee_ids yang telat
 
-        if (!$date) {
+        if (!$date || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             if (isHtmx()) {
+                header('HX-Reswap: beforeend');
+                header('HX-Retarget: body');
                 echo renderAlert('danger', 'Tanggal tidak valid.');
             } else {
                 redirect('/attendances');
@@ -80,26 +83,28 @@ class AttendanceController
             $check->execute([$date]);
             $isUpdate = $check->fetchColumn() > 0;
 
-            $attModel->saveBulk($date, $employeeIds, $presentIds, $notesMap);
+            $attModel->saveBulk($date, $employeeIds, $presentIds, $notesMap, $telatIds);
             
             $jmlHadir = count($presentIds);
             $jmlTidakHadir = count($employeeIds) - $jmlHadir;
+            $jmlTelat = count(array_intersect($presentIds, $telatIds));
             
-            $titleText = $isUpdate ? 'Diperbarui!' : 'Berhasil!';
-            $descText = $isUpdate ? 'Data kehadiran tanggal <strong class="text-dark">%s</strong> telah diperbarui.' : 'Data kehadiran tanggal <strong class="text-dark">%s</strong> telah tersimpan.';
+            $titleText = $isUpdate ? 'Berhasil Diperbarui!' : 'Berhasil Disimpan!';
+            $descText = $isUpdate ? 'Data kehadiran tanggal <strong class="text-dark">%s</strong> telah berhasil diperbarui.' : 'Data kehadiran tanggal <strong class="text-dark">%s</strong> telah berhasil tersimpan.';
             $sessionText = $isUpdate ? 'Data kehadiran tanggal %s berhasil diperbarui.' : 'Data kehadiran tanggal %s berhasil disimpan.';
             
             $msg = sprintf(
                 '<div class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="z-index: 1055; background: rgba(0,0,0,0.5);" id="attendance-success-overlay" onclick="this.remove()">' .
-                    '<div class="card border-0 shadow-lg" style="max-width: 400px; width: 90%%; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);" onclick="event.stopPropagation()">' .
+                    '<div class="card border-0 shadow-lg" style="max-width: 420px; width: 90%%; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);" onclick="event.stopPropagation()">' .
                         '<div class="card-body p-4 text-center">' .
                             '<div class="mb-3 text-success">' .
                                 '<i class="bi bi-check-circle-fill" style="font-size: 4rem;"></i>' .
                             '</div>' .
                             '<h4 class="fw-bold mb-2">%s</h4>' .
                             '<p class="text-muted mb-4">' . $descText . '</p>' .
-                            '<div class="d-flex justify-content-center gap-2 mb-4">' .
+                            '<div class="d-flex justify-content-center gap-2 mb-4 flex-wrap">' .
                                 '<span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 fs-6 border border-success-subtle">%d Hadir</span>' .
+                                '<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3 py-2 fs-6 border border-warning-subtle">%d Telat</span>' .
                                 '<span class="badge bg-danger-subtle text-danger rounded-pill px-3 py-2 fs-6 border border-danger-subtle">%d Tidak Hadir</span>' .
                             '</div>' .
                             '<button type="button" class="btn btn-primary px-5 rounded-pill shadow-sm" onclick="document.getElementById(\'attendance-success-overlay\').remove()">Oke, Tutup</button>' .
@@ -110,19 +115,38 @@ class AttendanceController
                 $titleText,
                 e(formatTanggal($date)),
                 $jmlHadir,
+                $jmlTelat,
                 $jmlTidakHadir
             );
             
             if (isHtmx()) {
+                // Trigger HTMX untuk reload form container agar data terbaru tampil sesuai tanggal filter
+                header('HX-Trigger: attendanceSaved');
                 echo $msg;
             } else {
-                $_SESSION['flash_success'] = sprintf($sessionText, e(formatTanggal($date))) . ' (Hadir: ' . $jmlHadir . ', Tidak Hadir: ' . $jmlTidakHadir . ')';
+                $_SESSION['flash_title'] = $titleText;
+                $_SESSION['flash_success'] = sprintf($sessionText, e(formatTanggal($date))) . ' (Hadir: ' . $jmlHadir . ', Telat: ' . $jmlTelat . ', Tidak Hadir: ' . $jmlTidakHadir . ')';
                 redirect('/attendances?date=' . urlencode($date));
             }
         } catch (\Exception $e) {
-            $msg = renderAlert('danger', 'Gagal menyimpan kehadiran: ' . e($e->getMessage()), 5000);
+            $errMsg = sprintf(
+                '<div class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="z-index: 1055; background: rgba(0,0,0,0.5);" id="attendance-error-overlay" onclick="this.remove()">' .
+                    '<div class="card border-0 shadow-lg" style="max-width: 420px; width: 90%%; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);" onclick="event.stopPropagation()">' .
+                        '<div class="card-body p-4 text-center">' .
+                            '<div class="mb-3 text-danger">' .
+                                '<i class="bi bi-x-circle-fill" style="font-size: 4rem;"></i>' .
+                            '</div>' .
+                            '<h4 class="fw-bold mb-2 text-danger">Gagal Menyimpan!</h4>' .
+                            '<p class="text-muted mb-4">%s</p>' .
+                            '<button type="button" class="btn btn-danger px-5 rounded-pill shadow-sm" onclick="document.getElementById(\'attendance-error-overlay\').remove()">Tutup</button>' .
+                        '</div>' .
+                    '</div>' .
+                    '<style>@keyframes popIn { 0%% { opacity: 0; transform: scale(0.8); } 100%% { opacity: 1; transform: scale(1); } }</style>' .
+                '</div>',
+                e($e->getMessage())
+            );
             if (isHtmx()) {
-                echo $msg;
+                echo $errMsg;
             } else {
                 $_SESSION['flash_error'] = 'Gagal menyimpan kehadiran: ' . e($e->getMessage());
                 redirect('/attendances?date=' . urlencode($date));

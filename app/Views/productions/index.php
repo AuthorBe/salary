@@ -57,18 +57,19 @@
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-header bg-white border-bottom pt-3 pb-3">
         <form class="row gy-2 gx-3 align-items-center" id="dateFilterForm" 
-              hx-get="<?= url('/productions/form') ?>" 
-              hx-target="#production-form-container" 
-              hx-trigger="change from:#date">
+              action="<?= url('/productions') ?>" 
+              method="GET"
+              onsubmit="event.preventDefault(); loadProductionDate(document.getElementById('date').value);">
             
             <div class="col-auto">
                 <label for="date" class="col-form-label fw-bold">Tanggal Input:</label>
             </div>
             <div class="col-auto">
-                <input type="date" class="form-control fw-bold text-primary" id="date" name="date" value="<?= e($date) ?>" required max="<?= date('Y-m-d') ?>">
+                <input type="date" class="form-control fw-bold text-primary" id="date" name="date" value="<?= e($date) ?>" required max="<?= date('Y-m-d') ?>"
+                       onchange="loadProductionDate(this.value);">
             </div>
             <div class="col-auto">
-                <div class="htmx-indicator spinner-border spinner-border-sm text-primary" role="status">
+                <div class="htmx-indicator spinner-border spinner-border-sm text-primary" id="dateSpinner" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
             </div>
@@ -84,3 +85,36 @@
         ], 'partials'); ?>
     </div>
 </div>
+
+<script>
+function loadProductionDate(dateVal) {
+    if (!dateVal) return;
+    
+    var newUrl = '<?= url('/productions') ?>?date=' + encodeURIComponent(dateVal);
+    window.history.pushState({ date: dateVal }, '', newUrl);
+
+    var spinner = document.getElementById('dateSpinner');
+    if (spinner) spinner.classList.add('htmx-request');
+
+    if (window.htmx) {
+        htmx.ajax('GET', '<?= url('/productions/form') ?>?date=' + encodeURIComponent(dateVal), {
+            target: '#production-form-container',
+            swap: 'innerHTML'
+        }).then(function() {
+            if (spinner) spinner.classList.remove('htmx-request');
+        });
+    } else {
+        window.location.href = newUrl;
+    }
+}
+
+window.addEventListener('popstate', function(evt) {
+    var urlParams = new URLSearchParams(window.location.search);
+    var dateVal = urlParams.get('date');
+    if (dateVal) {
+        var dateInput = document.getElementById('date');
+        if (dateInput) dateInput.value = dateVal;
+        loadProductionDate(dateVal);
+    }
+});
+</script>

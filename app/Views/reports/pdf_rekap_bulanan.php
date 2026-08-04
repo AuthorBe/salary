@@ -329,7 +329,12 @@
                     if ($status === null) {
                         $mark = '-';
                     } elseif ($status['hadir'] == 1) {
-                        $mark = '<span style="color: green; font-weight: bold;">v</span>';
+                        if (!empty($status['telat'])) {
+                            // Hadir tapi telat: simbol T warna oranye/kuning saja
+                            $mark = '<span style="color: #e67e22; font-weight: bold;">T</span>';
+                        } else {
+                            $mark = '<span style="color: green; font-weight: bold;">v</span>';
+                        }
                     } else {
                         $mark = '<span style="color: red; font-weight: bold;">X</span>';
                         $catatan = trim($status['catatan'] ?? '');

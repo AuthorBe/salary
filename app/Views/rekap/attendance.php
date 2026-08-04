@@ -40,7 +40,8 @@
                     <tr>
                         <th class="py-3 px-4 rounded-start w-50">Karyawan</th>
                         <th class="py-3 px-4 text-center">Total Hadir</th>
-                        <th class="py-3 px-4 text-center rounded-end">Total Absen</th>
+                        <th class="py-3 px-4 text-center">Total Absen</th>
+                        <th class="py-3 px-4 text-center rounded-end">Keterlambatan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -52,7 +53,7 @@
                     ?>
                     <?php if (empty($groupedByTipe)): ?>
                         <tr>
-                            <td colspan="3" class="text-center py-5 text-muted">
+                            <td colspan="4" class="text-center py-5 text-muted">
                                 <i class="bi bi-calendar-x fs-1 d-block mb-3 opacity-50"></i>
                                 Tidak ada data absensi untuk periode ini.
                             </td>
@@ -61,16 +62,25 @@
                         <?php foreach ($groupedByTipe as $tipe => $employees): ?>
                             <!-- Header Grup Tipe Gaji -->
                             <tr class="bg-light">
-                                <td colspan="3" class="py-2 px-4 fw-bold text-dark border-bottom-0 text-uppercase">
+                                <td colspan="4" class="py-2 px-4 fw-bold text-dark border-bottom-0 text-uppercase">
                                     <i class="bi bi-people-fill text-primary me-2"></i> Karyawan <?= e($tipe) ?>
                                 </td>
                             </tr>
-                            <!-- Daftar Karyawan -->
                             <?php foreach ($employees as $row): ?>
                                 <tr>
                                     <td class="px-4 ps-5 fw-bold text-dark"><?= e($row['name']) ?></td>
                                     <td class="px-4 text-center fw-bold text-success fs-5"><?= (int)$row['total_hadir'] ?> <span class="fs-6 fw-normal text-muted">Hari</span></td>
                                     <td class="px-4 text-center fw-bold text-danger fs-5"><?= (int)$row['total_absen'] ?> <span class="fs-6 fw-normal text-muted">Hari</span></td>
+                                    <td class="px-4 text-center">
+                                        <?php $jmlTelat = (int)($row['total_telat'] ?? 0); ?>
+                                        <?php if ($jmlTelat > 0): ?>
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 fs-6 fw-semibold">
+                                                <i class="bi bi-clock-history me-1"></i><?= $jmlTelat ?>× Telat
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-muted fw-semibold">—</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endforeach; ?>

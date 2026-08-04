@@ -66,7 +66,7 @@
     </div>
 
     <div class="row g-3 g-md-4 mb-4">
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
                     <h6 class="text-muted fw-bold mb-2" style="font-size: 0.85rem;">Kehadiran</h6>
@@ -77,7 +77,22 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg">
+            <div class="card border-0 shadow-sm rounded-4 h-100" style="border-left: 3px solid #fd7e14 !important;">
+                <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
+                    <h6 class="fw-bold mb-2" style="font-size: 0.85rem; color: #fd7e14;">Keterlambatan</h6>
+                    <h4 class="fw-bold mb-0" style="color: <?= $stats['telat'] > 0 ? '#fd7e14' : '#adb5bd' ?>">
+                        <?= $stats['telat'] ?> <span class="fs-6 text-muted fw-normal">Kali</span>
+                    </h4>
+                    <?php if ($stats['telat'] > 0): ?>
+                        <small class="fw-bold mt-1" style="font-size: 0.75rem; color: #fd7e14;"><i class="bi bi-clock-history"></i> Terlambat</small>
+                    <?php else: ?>
+                        <small class="text-muted mt-1" style="font-size: 0.75rem;">Tidak pernah telat</small>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
                     <h6 class="text-muted fw-bold mb-2" style="font-size: 0.85rem;">Total Upah Produksi</h6>
@@ -85,7 +100,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
                     <h6 class="text-muted fw-bold mb-2" style="font-size: 0.85rem;">Total Upah Lembur</h6>
@@ -93,7 +108,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg">
             <div class="card border-0 shadow-sm rounded-4 h-100">
                 <div class="card-body p-3 p-md-4 text-center d-flex flex-column justify-content-center">
                     <h6 class="text-muted fw-bold mb-2" style="font-size: 0.85rem;">Sisa Kasbon Saat Ini</h6>
@@ -155,11 +170,17 @@
                                     <td class="px-3 text-center">
                                         <?php if ($hasAbsen): ?>
                                             <?php if ($isHadir): ?>
-                                                <?php if ($uangLemburTampil > 0): ?>
-                                                    <span class="badge bg-primary rounded-pill px-3">Lembur</span>
-                                                <?php else: ?>
-                                                    <span class="badge bg-success rounded-pill px-3">Hadir</span>
-                                                <?php endif; ?>
+                                                <?php $isTelat = isset($log['absensi']['telat']) && $log['absensi']['telat'] == 1; ?>
+                                                <div class="d-flex justify-content-center gap-1 flex-wrap">
+                                                    <?php if ($isTelat): ?>
+                                                        <span class="badge rounded-pill px-3" style="background-color: #fd7e14; color: #fff;"><i class="bi bi-clock-history me-1"></i>Telat</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-success rounded-pill px-3">Hadir</span>
+                                                    <?php endif; ?>
+                                                    <?php if ($uangLemburTampil > 0): ?>
+                                                        <span class="badge bg-primary rounded-pill px-3">Lembur</span>
+                                                    <?php endif; ?>
+                                                </div>
                                             <?php else: ?>
                                                 <span class="badge bg-danger rounded-pill px-3">Absen</span>
                                             <?php endif; ?>

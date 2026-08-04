@@ -112,7 +112,7 @@ class ReportController
         $endDate = date('Y-m-t', strtotime($startDate));
 
         $stmtAbsensi = $db->prepare("
-            SELECT id_karyawan, date, hadir, catatan
+            SELECT id_karyawan, date, hadir, telat, catatan
             FROM absensi
             WHERE date >= ? AND date <= ?
         ");
@@ -122,7 +122,8 @@ class ReportController
         $attendanceData = [];
         foreach ($absensiRaw as $ab) {
             $attendanceData[$ab['id_karyawan']][$ab['date']] = [
-                'hadir' => (int)$ab['hadir'],
+                'hadir'   => (int)$ab['hadir'],
+                'telat'   => (int)$ab['telat'],
                 'catatan' => $ab['catatan']
             ];
         }
