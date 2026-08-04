@@ -28,7 +28,7 @@ class OvertimeController
 
         view('overtime/form', [
             'title'       => 'Input Lembur – Salary',
-            'pageTitle'   => 'Input Lembur (Dinamis)',
+            'pageTitle'   => 'Input Lembur',
             'pageKey'     => 'overtime',
             'date'        => $date,
             'employees'   => $employees,
