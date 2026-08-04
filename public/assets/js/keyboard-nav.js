@@ -1,7 +1,7 @@
 /**
  * Global Keyboard Navigation for Forms
  * - Enter: Move to the next input with class .enter-nav
- * - Spasi: Open dropdown (Select2)
+ * - Spasi: Open dropdown (Select2 & Custom Searchable Dropdown)
  * - Shift+Enter or Backspace (if empty): Move to the previous input
  * - Ctrl+Enter: Submit the form
  * - Ctrl+Delete: Delete the current row (if it has a .btn-remove-row button)
@@ -74,13 +74,17 @@ document.addEventListener('DOMContentLoaded', function() {
         return $select.length ? $select : null;
     };
 
-    // Helper function to focus an element safely (including Select2)
+    // Helper function to focus an element safely (including Select2 & Custom Dropdown)
     const focusElement = (el) => {
+        if (!el) return;
         if (el.classList.contains('select2-hidden-accessible') && window.jQuery) {
             const $next = window.jQuery(el).nextAll('.select2-container').first();
             if ($next.length) {
                 $next.find('.select2-selection').focus();
             }
+        } else if (el.classList.contains('sd-trigger')) {
+            el.focus();
+            if (window.getSelection) { window.getSelection().removeAllRanges(); }
         } else {
             el.focus();
             if (el.tagName.toLowerCase() === 'input' && (el.type === 'text' || el.type === 'number')) {
@@ -89,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // Helper to get visible nav elements (handling Select2)
+    // Helper to get visible nav elements (handling Select2 & Custom Dropdown)
     const getVisibleNavElements = (form) => {
         return Array.from(form.querySelectorAll('.enter-nav')).filter(el => {
             if (el.disabled || el.readOnly) return false;
@@ -101,6 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Helper to get current nav element from active element
     const getCurrentNavElement = (activeElement) => {
+        if (!activeElement) return null;
         if (activeElement.classList.contains('enter-nav')) {
             return activeElement;
         } else if (activeElement.closest('.select2-selection')) {
@@ -110,7 +115,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return $select[0];
             }
         } else if (activeElement.classList.contains('select2-search__field')) {
-            // Jika sedang mengetik di pencarian Select2 yang sedang terbuka
             const container = document.querySelector('.select2-container--open');
             if (container) {
                 const $select = getSelectFromContainer(container);
@@ -118,9 +122,48 @@ document.addEventListener('DOMContentLoaded', function() {
                     return $select[0];
                 }
             }
+        } else if (activeElement.classList.contains('sd-search')) {
+            const dropdown = activeElement.closest('.sd-dropdown');
+            if (dropdown && dropdown._sdTrigger && dropdown._sdTrigger.classList.contains('enter-nav')) {
+                return dropdown._sdTrigger;
+            }
         }
         return null;
     };
+
+    // Helper untuk maju ke elemen .enter-nav berikutnya dari elemen asal
+    const moveNextNavElement = (fromEl) => {
+        if (!fromEl) return;
+        const form = fromEl.closest('form') || globalTargetForm || document.querySelector('form');
+        if (!form) return;
+        const navElements = getVisibleNavElements(form);
+        const currentIndex = navElements.indexOf(fromEl);
+        if (currentIndex > -1) {
+            if (currentIndex < navElements.length - 1) {
+                focusElement(navElements[currentIndex + 1]);
+            } else {
+                const addRowBtnSelector = form.getAttribute('data-add-row-btn');
+                if (addRowBtnSelector) {
+                    const addRowBtn = form.querySelector(addRowBtnSelector);
+                    if (addRowBtn) {
+                        addRowBtn.click();
+                        setTimeout(() => {
+                            const newNavElements = getVisibleNavElements(form);
+                            if (newNavElements.length > navElements.length) {
+                                focusElement(newNavElements[currentIndex + 1]);
+                            }
+                        }, 60);
+                    }
+                }
+            }
+        }
+    };
+
+    // Export helpers ke window
+    window.focusElement = focusElement;
+    window.getVisibleNavElements = getVisibleNavElements;
+    window.getCurrentNavElement = getCurrentNavElement;
+    window.moveNextNavElement = moveNextNavElement;
     
     // Listen to keydown on the document
     document.addEventListener('keydown', function(e) {
@@ -134,13 +177,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 activeElement.tagName.toLowerCase() === 'textarea' || 
                 activeElement.tagName.toLowerCase() === 'button' ||
                 activeElement.classList.contains('select2-selection') ||
-                activeElement.classList.contains('select2-search__field')
+                activeElement.classList.contains('select2-search__field') ||
+                activeElement.classList.contains('sd-trigger') ||
+                activeElement.classList.contains('sd-search')
             );
             
             if (!isInputMode) {
                 const navElements = Array.from(document.querySelectorAll('.enter-nav')).filter(el => el.offsetWidth > 0 && el.offsetHeight > 0);
                 if (navElements.length > 0) {
-                    e.preventDefault(); // Mencegah klik link default jika kursor ada di tag a
+                    e.preventDefault();
                     focusElement(navElements[0]);
                     return;
                 }
@@ -153,8 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (activeElement) {
                 let form = activeElement.closest('form');
                 
-                // If focus is in select2 search field, activeElement is in body
-                if (!form && activeElement.classList.contains('select2-search__field')) {
+                if (!form && (activeElement.classList.contains('select2-search__field') || activeElement.classList.contains('sd-search'))) {
                     form = globalTargetForm || document.querySelector('form');
                 }
                 
@@ -206,27 +250,33 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Handle Space to open dropdown (Select2 or standard select)
+        // Handle Space to open dropdown (Select2, Custom Dropdown, or standard select)
         if (e.key === ' ' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
             const activeElement = document.activeElement;
             if (activeElement && activeElement.tagName.toLowerCase() !== 'input' && activeElement.tagName.toLowerCase() !== 'textarea') {
                 const isNativeSelect = activeElement.tagName.toLowerCase() === 'select';
                 const isSelect2Container = activeElement.closest('.select2-selection');
-                const isNativeButNotSelect2 = isNativeSelect && !activeElement.classList.contains('select2-hidden-accessible');
+                const isSdTrigger = activeElement.classList.contains('sd-trigger');
                 
-                // Jika itu native select biasa (bukan Select2), kita biarkan browser menangani defaultnya (karena native spasi akan membuka select tanpa e.preventDefault)
+                if (isSdTrigger) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    activeElement.click();
+                    return;
+                }
+                
+                const isNativeButNotSelect2 = isNativeSelect && !activeElement.classList.contains('select2-hidden-accessible');
                 if (isNativeButNotSelect2) {
-                    return; // Biarkan browser natively membuka dropdown
+                    return;
                 }
                 
                 if (isNativeSelect || isSelect2Container) {
-                    e.preventDefault(); // prevent page scroll
+                    e.preventDefault();
                     e.stopPropagation();
                     
                     if (window.jQuery) {
                         if (isSelect2Container) {
                             setTimeout(() => {
-                                // Cara paling ampuh buka Select2: simulasi klik/mousedown langsung di elemennya
                                 const $container = window.jQuery(isSelect2Container);
                                 const mouseDown = window.jQuery.Event('mousedown', { which: 1 });
                                 $container.trigger(mouseDown);
@@ -247,9 +297,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if ((e.key === 'Backspace' || (e.key === 'Enter' && e.shiftKey)) && !e.ctrlKey && !e.altKey) {
             const activeElement = document.activeElement;
             if (activeElement) {
-                if (activeElement.classList.contains('select2-search__field')) {
+                if (activeElement.classList.contains('select2-search__field') || activeElement.classList.contains('sd-search')) {
                     if (e.key === 'Backspace' && activeElement.value !== '') {
-                        return; // Let Backspace delete text in Select2 search field
+                        return; // Biarkan Backspace menghapus karakter di pencarian
                     }
                 }
                 
@@ -257,24 +307,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (navElement) {
                     const isSelect = navElement.tagName.toLowerCase() === 'select';
                     const isCheckbox = activeElement.type === 'checkbox' || activeElement.type === 'radio';
-                    
-                    // Kolom nominal otomatis diisi "0" jika dikosongkan. 
-                    // Kita harus menganggap "0" sebagai "kosong" agar bisa mundur menggunakan Backspace.
-                    // Checkbox juga dianggap 'kosong' karena tidak ada teks yang bisa dihapus.
                     const isEmpty = isCheckbox || (('value' in activeElement) ? (activeElement.value === '' || activeElement.value === '0') : true);
+                    const isSpan = activeElement.tagName.toLowerCase() === 'span' || activeElement.closest('.select2-selection') || activeElement.classList.contains('sd-trigger');
                     
-                    const isSpan = activeElement.tagName.toLowerCase() === 'span' || activeElement.closest('.select2-selection');
-                    
-                    if (e.key === 'Enter' || isSelect || (isEmpty && !isSpan) || (e.key === 'Backspace' && isSpan)) {
+                    if (e.key === 'Enter' || isSelect || (isEmpty && !isSpan) || (e.key === 'Backspace' && isSpan) || activeElement.classList.contains('sd-search')) {
                         if (e.key === 'Enter') e.preventDefault();
                         
-                        const form = navElement.closest('form');
+                        const form = navElement.closest('form') || globalTargetForm || document.querySelector('form');
                         if (form) {
                             const navElements = getVisibleNavElements(form);
                             const currentIndex = navElements.indexOf(navElement);
                             
                             if (currentIndex > 0) {
                                 e.preventDefault();
+                                // Tutup custom dropdown jika terbuka
+                                const openDropdown = document.querySelector('.sd-dropdown.open');
+                                if (openDropdown) {
+                                    openDropdown.classList.remove('open');
+                                }
                                 focusElement(navElements[currentIndex - 1]);
                             }
                         }
@@ -288,50 +338,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const activeElement = document.activeElement;
             if (!activeElement) return;
             
+            // Jika sedang berada di input pencarian custom dropdown, biarkan dropdown me-handle Enter (memilih opsi)
+            if (activeElement.classList.contains('sd-search')) {
+                return;
+            }
+            
             const isTextarea = activeElement.tagName.toLowerCase() === 'textarea';
             const isButton = activeElement.tagName.toLowerCase() === 'button' || activeElement.type === 'button' || activeElement.type === 'submit';
             
-            // Allow default behavior for textareas (new line) and buttons (click)
             if (isTextarea || isButton) {
                 return;
             }
             
-            // Prevent Enter from submitting the form by default in any other input
             const form = activeElement.closest('form');
             if (form) {
                 e.preventDefault(); 
                 
                 const navElement = getCurrentNavElement(activeElement);
                 if (navElement) {
-                    const navElements = getVisibleNavElements(form);
-                    const currentIndex = navElements.indexOf(navElement);
-                    
-                    if (currentIndex > -1) {
-                        if (currentIndex < navElements.length - 1) {
-                            // Move to next element
-                            focusElement(navElements[currentIndex + 1]);
-                        } else {
-                            // We are at the LAST element!
-                            const addRowBtnSelector = form.getAttribute('data-add-row-btn');
-                            if (addRowBtnSelector) {
-                                const addRowBtn = form.querySelector(addRowBtnSelector);
-                                if (addRowBtn) {
-                                    addRowBtn.click();
-                                    
-                                    // Wait briefly for row to be added before focusing the new element
-                                    setTimeout(() => {
-                                        const newNavElements = getVisibleNavElements(form);
-                                        if (newNavElements.length > navElements.length) {
-                                            focusElement(newNavElements[currentIndex + 1]);
-                                        }
-                                    }, 50);
-                                }
-                            }
-                        }
-                    }
+                    moveNextNavElement(navElement);
                 }
             }
         }
     });
 
 });
+
