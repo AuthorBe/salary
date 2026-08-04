@@ -141,7 +141,7 @@ class ProductionController
             $emp = $empModel->findById($employeeId);
             $empName = $emp ? $emp['name'] : 'Karyawan';
 
-            $titleText = $isUpdate ? 'Diperbarui!' : 'Berhasil!';
+            $titleText = $isUpdate ? 'Berhasil Ditambahkan!' : 'Berhasil Disimpan!';
             $descText = $isUpdate ? 'Data produksi <strong class="text-dark">%s</strong> tanggal <strong class="text-dark">%s</strong> berhasil ditambahkan ke riwayat.' : 'Data produksi <strong class="text-dark">%s</strong> tanggal <strong class="text-dark">%s</strong> telah tersimpan.';
             $sessionText = $isUpdate ? 'Data produksi %s berhasil ditambahkan ke riwayat.' : 'Data produksi %s berhasil disimpan.';
 
@@ -168,6 +168,7 @@ class ProductionController
                 echo $msg;
                 $this->loadForm();
             } else {
+                $_SESSION['flash_title'] = $titleText;
                 $_SESSION['flash_success'] = sprintf($sessionText, e($empName));
                 redirect('/productions?date=' . urlencode($date));
             }

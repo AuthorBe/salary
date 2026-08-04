@@ -36,14 +36,14 @@
                 <div class="mb-3 text-success">
                     <i class="bi bi-check-circle-fill" style="font-size: 4rem;"></i>
                 </div>
-                <h4 class="fw-bold mb-2">Berhasil!</h4>
+                <h4 class="fw-bold mb-2"><?= e($_SESSION['flash_title'] ?? 'Berhasil!') ?></h4>
                 <p class="text-muted mb-4"><?= $_SESSION['flash_success'] ?></p>
                 <button type="button" class="btn btn-primary px-5 rounded-pill shadow-sm" onclick="document.getElementById('production-success-overlay').remove()">Oke, Tutup</button>
             </div>
         </div>
         <style>@keyframes popIn { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }</style>
     </div>
-    <?php unset($_SESSION['flash_success']); ?>
+    <?php unset($_SESSION['flash_success'], $_SESSION['flash_title']); ?>
 <?php endif; ?>
 
 <?php if (isset($_SESSION['flash_error'])): ?>

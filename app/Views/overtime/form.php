@@ -19,12 +19,20 @@ $bulananEmps  = array_filter($employees, fn($e) => $e['tipe_gaji'] === 'bulanan'
 </div>
 
 <?php if (isset($_SESSION['flash_success'])): ?>
-    <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 justify-content-start" role="alert">
-        <i class="bi bi-check-circle-fill me-2"></i>
-        <span><?= e($_SESSION['flash_success']); ?></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <div class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="z-index: 1055; background: rgba(0,0,0,0.5);" id="overtime-success-overlay" onclick="this.remove()">
+        <div class="card border-0 shadow-lg" style="max-width: 400px; width: 90%; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);" onclick="event.stopPropagation()">
+            <div class="card-body p-4 text-center">
+                <div class="mb-3 text-success">
+                    <i class="bi bi-check-circle-fill" style="font-size: 4rem;"></i>
+                </div>
+                <h4 class="fw-bold mb-2"><?= e($_SESSION['flash_title'] ?? 'Berhasil Disimpan!') ?></h4>
+                <p class="text-muted mb-4"><?= $_SESSION['flash_success'] ?></p>
+                <button type="button" class="btn btn-primary px-5 rounded-pill shadow-sm" onclick="document.getElementById('overtime-success-overlay').remove()">Oke, Tutup</button>
+            </div>
+        </div>
+        <style>@keyframes popIn { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }</style>
     </div>
-    <?php unset($_SESSION['flash_success']); ?>
+    <?php unset($_SESSION['flash_success'], $_SESSION['flash_title']); ?>
 <?php endif; ?>
 
 <?php if (isset($_SESSION['flash_error'])): ?>
@@ -43,7 +51,12 @@ $bulananEmps  = array_filter($employees, fn($e) => $e['tipe_gaji'] === 'bulanan'
                 <label for="dateFilter" class="col-form-label fw-bold">Tanggal Input:</label>
             </div>
             <div class="col-auto">
-                <input type="date" class="form-control fw-bold text-primary" id="dateFilter" name="date" value="<?= e($date) ?>" onchange="document.getElementById('dateForm').submit();">
+                <input type="date" class="form-control fw-bold text-primary" id="dateFilter" name="date" value="<?= e($date) ?>" onchange="document.getElementById('dateSpinner').classList.add('htmx-request'); document.getElementById('dateForm').submit();">
+            </div>
+            <div class="col-auto">
+                <div class="htmx-indicator spinner-border spinner-border-sm text-primary" id="dateSpinner" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
             </div>
         </form>
     </div>
