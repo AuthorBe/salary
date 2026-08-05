@@ -16,7 +16,12 @@
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-            <h5 class="card-title fw-bold text-dark mb-0">Daftar Kehadiran: <?= e(formatTanggal($date)) ?> (<?= e($typeLabel ?? 'Semua') ?>)</h5>
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+                <h5 class="card-title fw-bold text-dark mb-0">Daftar Kehadiran: <?= e(formatTanggal($date)) ?> (<?= e($typeLabel ?? 'Semua') ?>)</h5>
+                <span class="badge bg-light text-secondary border fw-normal py-1 px-2" style="font-size: 0.75rem;">
+                    <i class="bi bi-check-circle-fill text-success me-1"></i> Data sudah ada di sistem
+                </span>
+            </div>
         </div>
         <div class="card-body p-0">
             <form id="attendanceBulkForm_<?= e($employee_type ?? 'all') ?>" 
@@ -74,8 +79,11 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <label class="form-check-label fw-medium w-100 mb-0" for="present_<?= e($employee_type) ?>_<?= $emp['id'] ?>" style="cursor: pointer;">
+                                        <label class="form-check-label fw-medium w-100 mb-0 d-flex align-items-center" for="present_<?= e($employee_type) ?>_<?= $emp['id'] ?>" style="cursor: pointer;">
                                             <?= e($emp['name']) ?>
+                                            <?php if ($attData !== null): ?>
+                                                <i class="bi bi-check-circle-fill text-success ms-2" style="font-size: 0.85rem;" data-bs-toggle="tooltip" title="Data sudah ada di sistem"></i>
+                                            <?php endif; ?>
                                         </label>
                                     </td>
                                     <td>
