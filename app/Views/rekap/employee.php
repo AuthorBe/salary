@@ -17,7 +17,7 @@
         <form method="GET" action="<?= url('/rekap/employee') ?>" class="row g-3 align-items-end">
             <div class="col-md-4">
                 <label class="form-label text-muted fw-bold">Pilih Karyawan</label>
-                <select name="id_karyawan" class="form-select form-select-lg" required>
+                <select name="id_karyawan" class="form-select form-select-lg searchable-select" required>
                     <option value="">-- Pilih Karyawan --</option>
                     <?= renderEmployeeOptions($employees, $emp_id) ?>
                 </select>

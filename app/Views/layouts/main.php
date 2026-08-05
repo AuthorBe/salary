@@ -303,6 +303,7 @@
 <!-- App JS -->
 <script src="<?= assetUrl('js/app.js') ?>?v=<?= time() ?>"></script>
 <script src="<?= assetUrl('js/keyboard-nav.js') ?>?v=<?= time() ?>"></script>
+<script src="<?= assetUrl('js/searchable-select.js') ?>?v=<?= time() ?>"></script>
 
 <?php if (isset($pageGuide) && !empty($pageGuide)): ?>
 <!-- Modal Panduan Halaman -->

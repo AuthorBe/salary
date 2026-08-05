@@ -90,7 +90,7 @@ $productOptionsHtml = ob_get_clean();
                             <div class="row g-3 align-items-end">
                                 <div class="col-12 col-md-5">
                                     <label class="form-label small text-muted fw-bold mb-1">Nama Produk</label>
-                                    <select name="items[<?= $rowIndex ?>][id_produk]" class="form-select product-select enter-nav" required>
+                                    <select name="items[<?= $rowIndex ?>][id_produk]" class="form-select searchable-select product-select enter-nav" required>
                                         <option value="">-- Pilih Produk --</option>
                                         <?= $productOptionsHtml ?>
                                     </select>
@@ -118,7 +118,7 @@ $productOptionsHtml = ob_get_clean();
                                 <div class="row g-3 align-items-end">
                                     <div class="col-12 col-md-5">
                                         <label class="form-label small text-muted fw-bold mb-1">Nama Produk</label>
-                                        <select name="items[<?= $rowIndex ?>][id_produk]" class="form-select product-select enter-nav" required>
+                                        <select name="items[<?= $rowIndex ?>][id_produk]" class="form-select searchable-select product-select enter-nav" required>
                                             <option value="">-- Pilih Produk --</option>
                                             <?php
                                             // Render options manually to set selected
@@ -179,7 +179,7 @@ $productOptionsHtml = ob_get_clean();
         <div class="row g-3 align-items-end">
             <div class="col-12 col-md-5">
                 <label class="form-label small text-muted fw-bold mb-1">Nama Produk</label>
-                <select class="form-select product-select enter-nav" required>
+                <select class="form-select searchable-select product-select enter-nav" required>
                     <option value="">-- Pilih Produk --</option>
                     <?= $productOptionsHtml ?>
                 </select>
@@ -237,6 +237,10 @@ document.addEventListener('DOMContentLoaded', function() {
             tbody.appendChild(templateRow);
             window.produksiRowCount++;
             updateProduksiRemoveButtons();
+            // Init searchable dropdown pada baris baru
+            if (typeof window.initSearchableSelects === 'function') {
+                window.initSearchableSelects(templateRow);
+            }
         });
     }
 

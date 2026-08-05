@@ -136,7 +136,7 @@
                 
                 <div class="mb-3">
                     <label class="form-label fw-medium">Karyawan Bulanan</label>
-                    <select name="id_karyawan" class="form-select rounded-3" required>
+                    <select name="id_karyawan" class="form-select searchable-select rounded-3" required>
                         <option value="">-- Pilih Karyawan --</option>
                         <?= renderEmployeeOptions($karyawan) ?>
                     </select>

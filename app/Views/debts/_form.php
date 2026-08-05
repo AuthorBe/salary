@@ -19,7 +19,7 @@ $isEdit = !empty($debt);
                 <input type="text" class="form-control bg-light" value="<?= e($debt['employee_name']) ?>" readonly>
                 <input type="hidden" name="id_karyawan" value="<?= e($debt['id_karyawan']) ?>">
             <?php else: ?>
-                <select name="id_karyawan" id="id_karyawan" class="form-select enter-nav" required>
+                <select name="id_karyawan" id="id_karyawan" class="form-select searchable-select enter-nav" required>
                     <option value="">-- Pilih Karyawan --</option>
                     <?= renderEmployeeOptions($activeEmployees) ?>
                 </select>

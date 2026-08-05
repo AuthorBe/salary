@@ -5,7 +5,7 @@
         <form method="GET" action="/history" class="row g-4">
             <div class="col-md-3">
                 <label class="form-label">Karyawan</label>
-                <select name="employee_id" class="form-select">
+                <select name="employee_id" class="form-select searchable-select">
                     <option value="">Semua Karyawan</option>
                     <?php foreach ($employees as $emp): ?>
                         <option value="<?= $emp['id'] ?>" <?= ($filters['employee_id'] == $emp['id']) ? 'selected' : '' ?>>

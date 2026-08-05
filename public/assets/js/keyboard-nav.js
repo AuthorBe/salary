@@ -6,6 +6,12 @@
  * - Ctrl+Enter: Submit the form
  * - Ctrl+Delete: Delete the current row (if it has a .btn-remove-row button)
  * - Auto Add Row: If Enter is pressed on the last .enter-nav element and the form has data-add-row-btn, click it.
+ *
+ * Custom Searchable Dropdown (.sd-*) integration:
+ * - getVisibleNavElements() mengembalikan .sd-trigger sebagai pengganti <select hidden>
+ * - getCurrentNavElement() me-resolve .sd-trigger, .sd-search, .select2 ke elemen nav
+ * - focusElement() sadar .sd-trigger dan memberi focus ke trigger langsung
+ * - closeAllSdDropdowns() dipanggil saat navigasi mundur / pindah elemen
  */
 
 let globalTargetForm = null;
@@ -15,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.initKeyboardNavUI = () => {
         // Auto-inject Keyboard Shortcuts Info Card if the page uses it
         const generateInfoHtml = (hasAddRow) => {
-            let enterText = hasAddRow ? 'Maju & Tambah Baris' : 'Maju';
+            let enterText = hasAddRow ? 'Maju &amp; Tambah Baris' : 'Maju';
             let deleteHtml = hasAddRow ? `<kbd class="bg-white text-dark border shadow-sm px-2 py-1">Ctrl+Del</kbd> Hapus Baris &nbsp;&bull;&nbsp;` : '';
             
             return `
@@ -25,6 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <strong class="text-dark"><i class="bi bi-lightning-charge-fill text-warning"></i> Mode Input Cepat Aktif</strong><br>
                         <span class="text-muted d-inline-block mt-1" style="font-size: 0.85rem; line-height: 1.8;">
                             <kbd class="bg-white text-dark border shadow-sm px-2 py-1">Enter</kbd> ${enterText} &nbsp;&bull;&nbsp;
+                            <kbd class="bg-white text-dark border shadow-sm px-2 py-1">&rarr;</kbd> Maju &nbsp;&bull;&nbsp;
+                            <kbd class="bg-white text-dark border shadow-sm px-2 py-1">&larr;</kbd> Mundur &nbsp;&bull;&nbsp;
                             <kbd class="bg-white text-dark border shadow-sm px-2 py-1">Spasi</kbd> Buka Dropdown &nbsp;&bull;&nbsp;
                             <kbd class="bg-white text-dark border shadow-sm px-2 py-1">Shift+Enter</kbd> atau <kbd class="bg-white text-dark border shadow-sm px-2 py-1">Backspace</kbd> Mundur &nbsp;&bull;&nbsp;
                             ${deleteHtml}
@@ -93,22 +101,57 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // Helper to get visible nav elements (handling Select2 & Custom Dropdown)
+    // Helper to get visible nav elements
+    // Menangani: input/textarea biasa, Select2 (hidden-accessible), Custom SD (.sd-trigger)
+    // [Fix Bug #1] <select class="searchable-select enter-nav"> disembunyikan dengan display:none
+    // sehingga offsetWidth/Height = 0. Solusi: kembalikan .sd-trigger-nya sebagai pengganti.
     const getVisibleNavElements = (form) => {
-        return Array.from(form.querySelectorAll('.enter-nav')).filter(el => {
-            if (el.disabled || el.readOnly) return false;
-            if (el.offsetWidth > 0 && el.offsetHeight > 0) return true;
-            if (el.classList.contains('select2-hidden-accessible')) return true;
-            return false;
+        const result = [];
+        form.querySelectorAll('.enter-nav').forEach(el => {
+            if (el.disabled || el.readOnly) return;
+
+            // Kasus 1: <select> yang sudah di-transform oleh searchable-select.js
+            // → kembalikan .sd-trigger sebagai representasinya (yang benar-benar visible)
+            if (el.tagName.toLowerCase() === 'select' && el.dataset.searchableInit === 'true') {
+                const wrapper = el.nextSibling;
+                if (wrapper && wrapper.classList && wrapper.classList.contains('sd-wrapper')) {
+                    const sdTrigger = wrapper.querySelector('.sd-trigger');
+                    if (sdTrigger && sdTrigger.offsetWidth > 0) {
+                        result.push(sdTrigger);
+                        return;
+                    }
+                }
+                // Fallback: jika trigger tidak ditemukan, skip
+                return;
+            }
+
+            // Kasus 2: Select2 (hidden-accessible tapi tetap dianggap visible)
+            if (el.classList.contains('select2-hidden-accessible')) {
+                result.push(el);
+                return;
+            }
+
+            // Kasus 3: Elemen biasa — cek visibility lewat offsetWidth/Height
+            if (el.offsetWidth > 0 && el.offsetHeight > 0) {
+                result.push(el);
+            }
         });
+        return result;
     };
 
     // Helper to get current nav element from active element
+    // Me-resolve elemen aktif (bisa di dalam dropdown) ke elemen .enter-nav yang sesuai
     const getCurrentNavElement = (activeElement) => {
         if (!activeElement) return null;
+
+        // Kasus: fokus sudah di .enter-nav langsung (input, textarea, atau .sd-trigger)
         if (activeElement.classList.contains('enter-nav')) {
+            // Jika ini sd-trigger, kembalikan langsung (sudah masuk list nav)
             return activeElement;
-        } else if (activeElement.closest('.select2-selection')) {
+        }
+
+        // Kasus: fokus di dalam select2
+        if (activeElement.closest('.select2-selection')) {
             const container = activeElement.closest('.select2-container');
             const $select = getSelectFromContainer(container);
             if ($select && $select[0].classList.contains('enter-nav')) {
@@ -122,16 +165,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     return $select[0];
                 }
             }
-        } else if (activeElement.classList.contains('sd-search')) {
+        }
+        // Kasus: fokus di sd-search input → resolve ke sd-trigger milik dropdown
+        else if (activeElement.classList.contains('sd-search')) {
             const dropdown = activeElement.closest('.sd-dropdown');
-            if (dropdown && dropdown._sdTrigger && dropdown._sdTrigger.classList.contains('enter-nav')) {
-                return dropdown._sdTrigger;
+            if (dropdown && dropdown._sdTrigger) {
+                const sdTrigger = dropdown._sdTrigger;
+                // sd-trigger harus punya class enter-nav untuk ikut navigasi
+                if (sdTrigger.classList.contains('enter-nav')) {
+                    return sdTrigger;
+                }
             }
         }
+        // Kasus: fokus di sd-trigger sendiri (tapi tidak punya enter-nav — rare case)
+        else if (activeElement.classList.contains('sd-trigger') && !activeElement.classList.contains('enter-nav')) {
+            return activeElement;
+        }
+
         return null;
     };
 
     // Helper untuk maju ke elemen .enter-nav berikutnya dari elemen asal
+    // fromEl bisa berupa: input, .sd-trigger, select2 element, dll.
     const moveNextNavElement = (fromEl) => {
         if (!fromEl) return;
         const form = fromEl.closest('form') || globalTargetForm || document.querySelector('form');
@@ -152,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (newNavElements.length > navElements.length) {
                                 focusElement(newNavElements[currentIndex + 1]);
                             }
-                        }, 60);
+                        }, 80); // Sedikit lebih lama agar sd-trigger sudah di-init
                     }
                 }
             }
@@ -183,10 +238,30 @@ document.addEventListener('DOMContentLoaded', function() {
             );
             
             if (!isInputMode) {
-                const navElements = Array.from(document.querySelectorAll('.enter-nav')).filter(el => el.offsetWidth > 0 && el.offsetHeight > 0);
+                // Cari elemen nav visible pertama — termasuk .sd-trigger
+                const navElements = Array.from(document.querySelectorAll('.enter-nav')).filter(el => {
+                    if (el.tagName.toLowerCase() === 'select' && el.dataset.searchableInit === 'true') {
+                        // Untuk searchable-select, cek sd-trigger-nya
+                        const wrapper = el.nextSibling;
+                        if (wrapper && wrapper.classList && wrapper.classList.contains('sd-wrapper')) {
+                            const sdTrigger = wrapper.querySelector('.sd-trigger');
+                            return sdTrigger && sdTrigger.offsetWidth > 0;
+                        }
+                        return false;
+                    }
+                    return el.offsetWidth > 0 && el.offsetHeight > 0;
+                });
                 if (navElements.length > 0) {
                     e.preventDefault();
-                    focusElement(navElements[0]);
+                    // Resolve ke sd-trigger jika perlu
+                    const firstEl = navElements[0];
+                    if (firstEl.tagName.toLowerCase() === 'select' && firstEl.dataset.searchableInit === 'true') {
+                        const wrapper = firstEl.nextSibling;
+                        const sdTrigger = wrapper && wrapper.querySelector('.sd-trigger');
+                        focusElement(sdTrigger || firstEl);
+                    } else {
+                        focusElement(firstEl);
+                    }
                     return;
                 }
             }
@@ -320,10 +395,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             if (currentIndex > 0) {
                                 e.preventDefault();
-                                // Tutup custom dropdown jika terbuka
-                                const openDropdown = document.querySelector('.sd-dropdown.open');
-                                if (openDropdown) {
-                                    openDropdown.classList.remove('open');
+                                // [Fix] Tutup custom dropdown via public API terpusat
+                                if (typeof window.closeAllSdDropdowns === 'function') {
+                                    window.closeAllSdDropdowns();
                                 }
                                 focusElement(navElements[currentIndex - 1]);
                             }
@@ -358,6 +432,62 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (navElement) {
                     moveNextNavElement(navElement);
                 }
+            }
+        }
+
+        // ── Handle ArrowRight / ArrowLeft untuk navigasi antar field ──────────────────
+        // ArrowRight → maju ke field berikutnya (seperti Enter, tapi hanya di boundary)
+        // ArrowLeft  → mundur ke field sebelumnya (seperti Shift+Enter, tapi hanya di boundary)
+        if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+            const activeElement = document.activeElement;
+            if (!activeElement) return;
+
+            const isSdTrigger   = activeElement.classList.contains('sd-trigger');
+            const isSdSearch    = activeElement.classList.contains('sd-search');
+            const isSelect2     = !!(activeElement.closest('.select2-selection') || activeElement.classList.contains('select2-search__field'));
+            const isInput       = activeElement.tagName.toLowerCase() === 'input' && !isSdSearch;
+            const isSelect      = activeElement.tagName.toLowerCase() === 'select';
+
+            let shouldIntercept = false;
+
+            if (isSdTrigger || isSelect2 || isSelect) {
+                // Dropdown/select: selalu intercept (tidak ada cursor teks)
+                shouldIntercept = true;
+            } else if (isSdSearch) {
+                // Di dalam search input: intercept hanya jika search kosong
+                shouldIntercept = activeElement.value === '';
+            } else if (isInput) {
+                // Input teks/angka: intercept hanya di boundary cursor
+                const len      = activeElement.value.length;
+                const selStart = activeElement.selectionStart;
+                const selEnd   = activeElement.selectionEnd;
+                if (e.key === 'ArrowRight' && selStart === len && selEnd === len) {
+                    shouldIntercept = true;   // Cursor di ujung kanan → maju
+                } else if (e.key === 'ArrowLeft' && selStart === 0 && selEnd === 0) {
+                    shouldIntercept = true;   // Cursor di ujung kiri → mundur
+                }
+            }
+
+            if (!shouldIntercept) return;
+
+            const navElement = getCurrentNavElement(activeElement);
+            if (!navElement) return;
+
+            const form = navElement.closest('form') || globalTargetForm || document.querySelector('form');
+            if (!form) return;
+
+            const navElements  = getVisibleNavElements(form);
+            const currentIndex = navElements.indexOf(navElement);
+            if (currentIndex === -1) return;
+
+            if (e.key === 'ArrowRight' && currentIndex < navElements.length - 1) {
+                e.preventDefault();
+                if (typeof window.closeAllSdDropdowns === 'function') window.closeAllSdDropdowns();
+                focusElement(navElements[currentIndex + 1]);
+            } else if (e.key === 'ArrowLeft' && currentIndex > 0) {
+                e.preventDefault();
+                if (typeof window.closeAllSdDropdowns === 'function') window.closeAllSdDropdowns();
+                focusElement(navElements[currentIndex - 1]);
             }
         }
     });

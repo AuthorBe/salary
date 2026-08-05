@@ -49,7 +49,7 @@
             </div>
             <div class="col-md-4">
                 <label for="id_karyawan" class="form-label fw-semibold">Filter Karyawan</label>
-                <select name="id_karyawan" id="id_karyawan" class="form-select">
+                <select name="id_karyawan" id="id_karyawan" class="form-select searchable-select">
                     <option value="">-- Semua Karyawan --</option>
                     <?php foreach ($employees as $emp): ?>
                         <option value="<?= $emp['id'] ?>" <?= $emp['id'] == $employeeId ? 'selected' : '' ?>>
