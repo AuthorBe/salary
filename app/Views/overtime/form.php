@@ -109,12 +109,15 @@ foreach ($products as $p) {
         </form>
     </div>
     
+<?php
+$activeTab = $_GET['tab'] ?? 'borongan';
+?>
     <div class="card-body p-0">
         <div class="d-flex border-bottom px-4 pt-3" role="tablist">
-            <a href="#borongan" data-bs-toggle="tab" role="tab" class="custom-tab active fw-bold px-4 py-3 text-decoration-none">
+            <a href="#borongan" data-bs-toggle="tab" role="tab" class="custom-tab <?= $activeTab === 'borongan' ? 'active' : '' ?> fw-bold px-4 py-3 text-decoration-none">
                 <i class="bi bi-box-seam text-warning me-2"></i> Lembur Borongan
             </a>
-            <a href="#bulanan" data-bs-toggle="tab" role="tab" class="custom-tab fw-bold px-4 py-3 text-decoration-none">
+            <a href="#bulanan" data-bs-toggle="tab" role="tab" class="custom-tab <?= $activeTab === 'bulanan' ? 'active' : '' ?> fw-bold px-4 py-3 text-decoration-none">
                 <i class="bi bi-clock-history text-primary me-2"></i> Lembur Bulanan (Massal)
             </a>
         </div>
@@ -122,7 +125,7 @@ foreach ($products as $p) {
         <div class="tab-content p-4" id="overtimeTabsContent">
             
             <!-- TAB BORONGAN -->
-            <div class="tab-pane fade show active" id="borongan" role="tabpanel" aria-labelledby="borongan-tab">
+            <div class="tab-pane fade <?= $activeTab === 'borongan' ? 'show active' : '' ?>" id="borongan" role="tabpanel" aria-labelledby="borongan-tab">
                 <form method="POST" action="<?= url('/overtime/store') ?>" id="boronganForm" data-add-row-btn="#btnAddRow">
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <input type="hidden" name="date" value="<?= e($date) ?>">
@@ -206,7 +209,7 @@ foreach ($products as $p) {
             </div>
 
             <!-- TAB BULANAN -->
-            <div class="tab-pane fade" id="bulanan" role="tabpanel" aria-labelledby="bulanan-tab">
+            <div class="tab-pane fade <?= $activeTab === 'bulanan' ? 'show active' : '' ?>" id="bulanan" role="tabpanel" aria-labelledby="bulanan-tab">
                 <form method="POST" action="<?= url('/overtime/store') ?>" id="bulananForm" data-add-row-btn="#btnAddBulanan">
                     <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                     <input type="hidden" name="date" value="<?= e($date) ?>">
@@ -214,7 +217,7 @@ foreach ($products as $p) {
                     
                     <div class="alert alert-info border-0 shadow-sm d-flex align-items-center">
                         <i class="bi bi-info-circle-fill fs-4 me-3"></i>
-                        <div>Karyawan bulanan yang Anda isikan nominal lemburnya akan <strong>otomatis dianggap Hadir</strong> pada tanggal ini. Isi 0 jika tidak ada lembur.</div>
+                        <div>Karyawan bulanan yang dimasukkan di form ini wajib diisikan <strong>Bonus Lembur (Rp) lebih dari Rp 0</strong>. Penginputan lembur otomatis memastikan karyawan dicatat Hadir pada hari tersebut.</div>
                     </div>
 
                     <div id="bulananRows" class="d-flex flex-column gap-3 mb-3">

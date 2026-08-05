@@ -69,10 +69,11 @@
      hx-target="#attendance-form-container"
      hx-swap="innerHTML"
      hx-trigger="attendanceSaved from:body">
-    <?php view('attendances/_form', [
-        'date'        => $date,
-        'employees'   => $employees,
-        'attendances' => $attendances
+    <?php view('attendances/_tabs', [
+        'date'              => $date,
+        'employeesBulanan'  => $employeesBulanan,
+        'employeesBorongan' => $employeesBorongan,
+        'attendances'       => $attendances
     ], 'partials'); ?>
 </div>
 

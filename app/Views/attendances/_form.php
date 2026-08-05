@@ -12,22 +12,14 @@
         <div>Belum ada data karyawan aktif.</div>
     </div>
 <?php else: ?>
-    <!-- Info Banner Petunjuk Keterangan Tidak Hadir -->
-    <div class="alert alert-info border-0 shadow-sm d-flex align-items-start gap-2 mb-3">
-        <i class="bi bi-info-circle-fill text-info fs-5 mt-1"></i>
-        <div>
-            <strong class="d-block mb-1">Petunjuk Keterangan Tidak Hadir:</strong>
-            Untuk karyawan yang <strong>Tidak Hadir</strong> (sakelar nonaktif), Anda dapat mengisi kolom <strong>Keterangan Tidak Hadir</strong> (misal: <em>Sakit, Izin, Cuti</em>). 
-            <span class="text-danger fw-semibold">Jika kolom keterangan dibiarkan kosong, sistem akan otomatis mencatatnya sebagai <u>Alfa</u>.</span>
-        </div>
-    </div>
+    <!-- Info Banner telah dipindah ke _tabs.php -->
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-            <h5 class="card-title fw-bold text-dark mb-0">Daftar Kehadiran: <?= e(formatTanggal($date)) ?></h5>
+            <h5 class="card-title fw-bold text-dark mb-0">Daftar Kehadiran: <?= e(formatTanggal($date)) ?> (<?= e($typeLabel ?? 'Semua') ?>)</h5>
         </div>
         <div class="card-body p-0">
-            <form id="attendanceBulkForm" 
+            <form id="attendanceBulkForm_<?= e($employee_type ?? 'all') ?>" 
                   method="POST"
                   action="<?= url('/attendances/store') ?>"
                   hx-post="<?= url('/attendances/store') ?>" 
@@ -35,6 +27,7 @@
                   hx-swap="beforeend">
                 <input type="hidden" name="csrf_token" value="<?= generateCsrfToken() ?>">
                 <input type="hidden" name="date" value="<?= e($date) ?>">
+                <input type="hidden" name="employee_type" value="<?= e($employee_type ?? 'bulanan') ?>">
                 
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
@@ -49,7 +42,7 @@
                         </thead>
                         <tbody class="border-top-0">
                             <?php foreach ($employees as $emp): ?>
-                        <?php 
+                                <?php 
                                     $attData   = $attendances[$emp['id']] ?? null;
                                     $isPresent = $attData !== null ? (is_array($attData) ? (bool)$attData['hadir'] : (bool)$attData) : true;
                                     $isTelat   = $attData !== null && is_array($attData) ? (bool)($attData['telat'] ?? false) : false;
@@ -60,8 +53,8 @@
                                         <div class="form-check form-switch form-switch-lg mb-0" style="padding-left: 2.5rem;">
                                             <input class="form-check-input attendance-switch enter-nav" type="checkbox" role="switch" 
                                                    name="hadir[]" value="<?= $emp['id'] ?>" 
-                                                   id="present_<?= $emp['id'] ?>" 
-                                                   data-emp-id="<?= $emp['id'] ?>"
+                                                   id="present_<?= e($employee_type) ?>_<?= $emp['id'] ?>" 
+                                                   data-emp-id="<?= e($employee_type) ?>_<?= $emp['id'] ?>"
                                                    <?= $isPresent ? 'checked' : '' ?>
                                                    style="width: 2.5em; height: 1.25em; cursor: pointer;">
                                         </div>
@@ -70,18 +63,18 @@
                                         <div class="form-check mb-0 ps-4">
                                             <input class="form-check-input telat-check" type="checkbox"
                                                    name="telat[]" value="<?= $emp['id'] ?>"
-                                                   id="telat_<?= $emp['id'] ?>"
-                                                   data-emp-id="<?= $emp['id'] ?>"
+                                                   id="telat_<?= e($employee_type) ?>_<?= $emp['id'] ?>"
+                                                   data-emp-id="<?= e($employee_type) ?>_<?= $emp['id'] ?>"
                                                    <?= $isTelat ? 'checked' : '' ?>
                                                    <?= !$isPresent ? 'disabled' : '' ?>
                                                    style="width: 1.1em; height: 1.1em; cursor: pointer; accent-color: #fd7e14;">
-                                            <label class="form-check-label text-warning-emphasis fw-semibold small" for="telat_<?= $emp['id'] ?>" style="cursor: pointer;">
+                                            <label class="form-check-label text-warning-emphasis fw-semibold small" for="telat_<?= e($employee_type) ?>_<?= $emp['id'] ?>" style="cursor: pointer;">
                                                 <i class="bi bi-clock-history"></i>
                                             </label>
                                         </div>
                                     </td>
                                     <td>
-                                        <label class="form-check-label fw-medium w-100 mb-0" for="present_<?= $emp['id'] ?>" style="cursor: pointer;">
+                                        <label class="form-check-label fw-medium w-100 mb-0" for="present_<?= e($employee_type) ?>_<?= $emp['id'] ?>" style="cursor: pointer;">
                                             <?= e($emp['name']) ?>
                                         </label>
                                     </td>
@@ -94,7 +87,7 @@
                                         <input type="text" 
                                                class="form-control form-control-sm catatan-input enter-nav" 
                                                name="catatan[<?= $emp['id'] ?>]" 
-                                               id="notes_<?= $emp['id'] ?>"
+                                               id="notes_<?= e($employee_type) ?>_<?= $emp['id'] ?>"
                                                value="<?= e($notes) ?>"
                                                placeholder="Alfa (otomatis jika kosong)"
                                                <?= $isPresent ? 'disabled style="opacity: 0.45; background-color: #f8fafc;"' : 'style="background-color: #ffffff;"' ?>>
@@ -109,7 +102,7 @@
                     <!-- HTMX Indicator -->
                     <span class="htmx-indicator spinner-border spinner-border-sm text-primary me-3" role="status" aria-hidden="true"></span>
                     <button type="submit" class="btn btn-primary px-4 fw-semibold rounded-pill shadow-sm">
-                        <i class="bi bi-save me-2"></i>Simpan Semua
+                        <i class="bi bi-save me-2"></i>Simpan <?= e($typeLabel ?? 'Semua') ?>
                     </button>
                 </div>
             </form>

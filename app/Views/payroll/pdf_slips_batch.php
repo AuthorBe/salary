@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>Slip Gaji Batch - <?= htmlspecialchars($safeRunName ?? 'Payroll') ?></title>
     <style>
-        @page { margin: 15px; }
+        @page { margin: 5px; }
         body {
             font-family: Helvetica, Arial, sans-serif;
             font-size: 10px;
@@ -22,7 +22,7 @@
         .grid-table {
             width: 100%;
             border-collapse: separate;
-            border-spacing: 15px; /* Jarak antar slip */
+            border-spacing: 5px; /* Jarak antar slip sangat sempit */
         }
         
         .grid-table tr {
@@ -32,7 +32,7 @@
         .grid-cell {
             width: 50%;
             vertical-align: top;
-            padding: 15px;
+            padding: 8px;
             border: 1px dashed #999;
         }
 
@@ -119,7 +119,7 @@ foreach ($items as $index => $row):
                 <?php endif; ?>
                 <?php if ((float)$row['tunjangan_lain'] > 0): ?>
                 <tr>
-                    <td>Tunjangan Lain</td>
+                    <td><?= htmlspecialchars(!empty(trim($row['catatan_tunjangan_lain'] ?? '')) ? trim($row['catatan_tunjangan_lain']) : 'Tunjangan Lain') ?></td>
                     <td class="text-right"><?= number_format((float)$row['tunjangan_lain'], 0, ',', '.') ?></td>
                 </tr>
                 <?php endif; ?>
@@ -160,7 +160,7 @@ foreach ($items as $index => $row):
                 <?php endif; ?>
                 <?php if ((float)$row['potongan_lain'] > 0): ?>
                 <tr>
-                    <td>Potongan Lain</td>
+                    <td><?= htmlspecialchars(!empty(trim($row['catatan_potongan_lain'] ?? '')) ? trim($row['catatan_potongan_lain']) : 'Potongan Lain') ?></td>
                     <td class="text-right"><?= number_format((float)$row['potongan_lain'], 0, ',', '.') ?></td>
                 </tr>
                 <?php endif; ?>

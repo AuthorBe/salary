@@ -47,11 +47,15 @@ class Attendance
     {
         $this->db->beginTransaction();
         try {
-            // PROTEKSI: Cek apakah data pada tanggal ini sudah dikunci (masuk payroll)
-            $checkLock = $this->db->prepare("SELECT COUNT(*) FROM absensi WHERE date = ? AND id_penggajian IS NOT NULL");
-            $checkLock->execute([$date]);
-            if ($checkLock->fetchColumn() > 0) {
-                throw new \Exception("Data absensi pada tanggal ini sudah Terkunci karena telah masuk ke proses Penggajian (Payroll).");
+            // PROTEKSI: Cek apakah data karyawan yang disubmit pada tanggal ini sudah dikunci (masuk payroll)
+            if (count($employeeIds) > 0) {
+                $placeholders = implode(',', array_fill(0, count($employeeIds), '?'));
+                $checkLock = $this->db->prepare("SELECT COUNT(*) FROM absensi WHERE date = ? AND id_karyawan IN ($placeholders) AND id_penggajian IS NOT NULL");
+                $params = array_merge([$date], $employeeIds);
+                $checkLock->execute($params);
+                if ($checkLock->fetchColumn() > 0) {
+                    throw new \Exception("Sebagian atau seluruh data absensi karyawan ini sudah masuk ke proses Penggajian (Payroll) sehingga terkunci.");
+                }
             }
             $stmt = $this->db->prepare("
                 INSERT INTO absensi (id_karyawan, date, hadir, telat, catatan)
@@ -114,5 +118,46 @@ class Attendance
                 lembur_nominal = VALUES(lembur_nominal)
         ");
         $stmt->execute([$employeeId, $date, $isPresent, $notes, $lemburNominal]);
+    }
+
+    /**
+     * Simpan nominal lembur bulanan untuk satu karyawan (dipakai di Input Lembur Bulanan).
+     * Mempertahankan data absensi (hadir, telat, catatan) yang sudah ada sebelumnya.
+     */
+    public function saveMonthlyOvertime(int $employeeId, string $date, int $lemburNominal): void
+    {
+        // PROTEKSI: Cek apakah data pada tanggal ini sudah dikunci (masuk payroll)
+        $checkLock = $this->db->prepare("SELECT COUNT(*) FROM absensi WHERE date = ? AND id_karyawan = ? AND id_penggajian IS NOT NULL");
+        $checkLock->execute([$date, $employeeId]);
+        if ($checkLock->fetchColumn() > 0) {
+            throw new \Exception("Data absensi pada tanggal ini sudah Terkunci karena telah masuk ke proses Penggajian (Payroll).");
+        }
+
+        // Cek apakah sudah ada data absensi untuk karyawan ini di tanggal ini
+        $stmtCheck = $this->db->prepare("SELECT hadir, telat, catatan FROM absensi WHERE id_karyawan = ? AND date = ?");
+        $stmtCheck->execute([$employeeId, $date]);
+        $existing = $stmtCheck->fetch();
+
+        if ($existing) {
+            // Jika sudah ada record: jika sebelumnya tidak hadir (hadir = 0), ubah ke hadir = 1 dan bersihkan catatan alfa/izin.
+            // Jika sebelumnya sudah hadir, pertahankan status telat & catatan yang ada.
+            $hadir = 1;
+            $catatan = ($existing['hadir'] == 1) ? $existing['catatan'] : null;
+            $telat = (int) $existing['telat'];
+
+            $stmt = $this->db->prepare("
+                UPDATE absensi 
+                SET hadir = ?, telat = ?, catatan = ?, lembur_nominal = ?
+                WHERE id_karyawan = ? AND date = ?
+            ");
+            $stmt->execute([$hadir, $telat, $catatan, $lemburNominal, $employeeId, $date]);
+        } else {
+            // Jika belum ada record absensi: buat record baru dengan hadir = 1
+            $stmt = $this->db->prepare("
+                INSERT INTO absensi (id_karyawan, date, hadir, telat, catatan, lembur_nominal)
+                VALUES (?, ?, 1, 0, NULL, ?)
+            ");
+            $stmt->execute([$employeeId, $date, $lemburNominal]);
+        }
     }
 }

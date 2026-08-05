@@ -47,7 +47,7 @@ class OvertimeController
 
         if (!$date || !$tipeInput) {
             $_SESSION['flash_error'] = 'Tanggal dan Tipe Input wajib diisi.';
-            redirect('/overtime?date=' . urlencode($date));
+            redirect('/overtime?date=' . urlencode($date) . ($tipeInput ? '&tab=' . urlencode($tipeInput) : ''));
             return;
         }
 
@@ -95,11 +95,20 @@ class OvertimeController
             } else if ($tipeInput === 'bulanan') {
                 $bulananItems = $_POST['bulanan_items'] ?? [];
                 
+                $empModel = new Employee();
                 $lemburMassal = [];
+                $hasSelectedEmp = false;
+
                 foreach ($bulananItems as $item) {
                     $empId = (int)($item['id_karyawan'] ?? 0);
                     if ($empId > 0) {
+                        $hasSelectedEmp = true;
                         $nominal = parseRupiah($item['nominal'] ?? '0');
+                        if ($nominal <= 0) {
+                            $emp = $empModel->findById($empId);
+                            $empName = $emp['name'] ?? 'karyawan';
+                            throw new \Exception("Nominal lembur untuk $empName harus lebih besar dari Rp 0.");
+                        }
                         if (!isset($lemburMassal[$empId])) {
                             $lemburMassal[$empId] = 0;
                         }
@@ -107,41 +116,27 @@ class OvertimeController
                     }
                 }
 
+                if (!$hasSelectedEmp || empty($lemburMassal)) {
+                    throw new \Exception('Harap pilih sekurang-kurangnya 1 karyawan bulanan.');
+                }
+
                 $attModel = new Attendance();
                 $existing = $attModel->getByDate($date);
                 
                 $count = 0;
                 foreach ($lemburMassal as $empId => $nominal) {
-                    $wasLembur = (isset($existing[$empId]) && $existing[$empId]['lembur_nominal'] > 0);
                     $existingNominal = $existing[$empId]['lembur_nominal'] ?? 0;
-                    
-                    if ($nominal === 0) {
-                        continue; // Jika input 0, tidak perlu mengubah data (konsisten dengan borongan)
-                    }
-
                     $finalNominal = $existingNominal + $nominal;
                     if ($finalNominal < 0) {
                         $finalNominal = 0;
                     }
                     
-                    if ($finalNominal > 0) {
-                        // Jika ada nominal lembur, pastikan hadir = 1
-                        $attModel->saveSingle($empId, $date, 1, '', $finalNominal);
-                        $count++;
-                    } else if ($finalNominal === 0 && $wasLembur) {
-                        // Jika lembur dinolkan (dihapus/minus sampai 0), kembalikan absensi seperti semula tapi lembur = 0
-                        $hadir = $existing[$empId]['hadir'] ? 1 : 0;
-                        $catatan = $existing[$empId]['catatan'] ?? '';
-                        $attModel->saveSingle($empId, $date, $hadir, $catatan, 0);
-                        $count++;
-                    }
-                }
-
-                if ($count === 0) {
-                    throw new \Exception('Harap pilih sekurang-kurangnya 1 karyawan bulanan.');
+                    // Simpan nominal lembur dan pertahankan status kehadiran/telat yang ada
+                    $attModel->saveMonthlyOvertime($empId, $date, $finalNominal);
+                    $count++;
                 }
                 
-                $_SESSION['flash_success'] = "Berhasil memproses data lembur massal untuk $count karyawan bulanan.";
+                $_SESSION['flash_success'] = "Berhasil memproses lembur massal untuk $count karyawan bulanan.";
             } else {
                 throw new \Exception('Tipe input tidak valid.');
             }
@@ -149,6 +144,6 @@ class OvertimeController
             $_SESSION['flash_error'] = $e->getMessage();
         }
 
-        redirect('/overtime?date=' . urlencode($date));
+        redirect('/overtime?date=' . urlencode($date) . ($tipeInput ? '&tab=' . urlencode($tipeInput) : ''));
     }
 }

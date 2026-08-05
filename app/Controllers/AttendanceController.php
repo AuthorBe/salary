@@ -15,18 +15,22 @@ class AttendanceController
         $date = $_GET['date'] ?? date('Y-m-d');
 
         $empModel = new Employee();
-        $employees = array_filter($empModel->getAll(), fn($e) => (bool) $e['aktif']);
+        $allActive = array_filter($empModel->getAll(), fn($e) => (bool) $e['aktif']);
+        
+        $employeesBulanan = array_filter($allActive, fn($e) => strtolower($e['tipe_gaji']) === 'bulanan');
+        $employeesBorongan = array_filter($allActive, fn($e) => strtolower($e['tipe_gaji']) !== 'bulanan');
 
         $attModel = new Attendance();
         $attendances = $attModel->getByDate($date);
 
         view('attendances/index', [
-            'title'       => 'Kehadiran Karyawan – Salary',
-            'pageTitle'   => 'Kehadiran Karyawan',
-            'pageKey'     => 'attendances',
-            'date'        => $date,
-            'employees'   => $employees,
-            'attendances' => $attendances
+            'title'             => 'Kehadiran Karyawan – Salary',
+            'pageTitle'         => 'Kehadiran Karyawan',
+            'pageKey'           => 'attendances',
+            'date'              => $date,
+            'employeesBulanan'  => $employeesBulanan,
+            'employeesBorongan' => $employeesBorongan,
+            'attendances'       => $attendances
         ]);
     }
 
@@ -38,15 +42,18 @@ class AttendanceController
 
         $empModel = new Employee();
         // Ambil SEMUA karyawan yang aktif saja
-        $employees = array_filter($empModel->getAll(), fn($e) => (bool) $e['aktif']);
+        $allActive = array_filter($empModel->getAll(), fn($e) => (bool) $e['aktif']);
+        $employeesBulanan = array_filter($allActive, fn($e) => strtolower($e['tipe_gaji']) === 'bulanan');
+        $employeesBorongan = array_filter($allActive, fn($e) => strtolower($e['tipe_gaji']) !== 'bulanan');
 
         $attModel = new Attendance();
         $attendances = $attModel->getByDate($date);
 
-        view('attendances/_form', [
-            'date'        => $date,
-            'employees'   => $employees,
-            'attendances' => $attendances
+        view('attendances/_tabs', [
+            'date'              => $date,
+            'employeesBulanan'  => $employeesBulanan,
+            'employeesBorongan' => $employeesBorongan,
+            'attendances'       => $attendances
         ], 'partials'); // Menggunakan layout kosong (karena diload via HTMX)
     }
 
@@ -56,6 +63,7 @@ class AttendanceController
         validateCsrfToken();
 
         $date       = $_POST['date'] ?? date('Y-m-d');
+        $type       = $_POST['employee_type'] ?? 'bulanan'; // bulanan atau borongan
         $presentIds = $_POST['hadir'] ?? []; // Array of employee_ids yang diceklis
         $notesMap   = $_POST['catatan'] ?? [];      // Array of catatan indexed by id_karyawan
         $telatIds   = $_POST['telat'] ?? [];        // Array of employee_ids yang telat
@@ -71,17 +79,30 @@ class AttendanceController
             return;
         }
 
-        // Ambil semua karyawan aktif untuk update bulk
+        // Ambil semua karyawan aktif sesuai tipe untuk update bulk
         $empModel = new Employee();
-        $employees = array_filter($empModel->getAll(), fn($e) => (bool) $e['aktif']);
+        $allActive = array_filter($empModel->getAll(), fn($e) => (bool) $e['aktif']);
+        
+        if ($type === 'bulanan') {
+            $employees = array_filter($allActive, fn($e) => strtolower($e['tipe_gaji']) === 'bulanan');
+        } else {
+            $employees = array_filter($allActive, fn($e) => strtolower($e['tipe_gaji']) !== 'bulanan');
+        }
+        
         $employeeIds = array_column($employees, 'id');
 
         $attModel = new Attendance();
         try {
             $db = getDB();
-            $check = $db->prepare("SELECT COUNT(*) FROM absensi WHERE date = ?");
-            $check->execute([$date]);
-            $isUpdate = $check->fetchColumn() > 0;
+            
+            $isUpdate = false;
+            if (count($employeeIds) > 0) {
+                $placeholders = implode(',', array_fill(0, count($employeeIds), '?'));
+                $checkUpdate = $db->prepare("SELECT COUNT(*) FROM absensi WHERE date = ? AND id_karyawan IN ($placeholders)");
+                $params = array_merge([$date], $employeeIds);
+                $checkUpdate->execute($params);
+                $isUpdate = $checkUpdate->fetchColumn() > 0;
+            }
 
             $attModel->saveBulk($date, $employeeIds, $presentIds, $notesMap, $telatIds);
             
@@ -89,9 +110,10 @@ class AttendanceController
             $jmlTidakHadir = count($employeeIds) - $jmlHadir;
             $jmlTelat = count(array_intersect($presentIds, $telatIds));
             
-            $titleText = $isUpdate ? 'Berhasil Diperbarui!' : 'Berhasil Disimpan!';
-            $descText = $isUpdate ? 'Data kehadiran tanggal <strong class="text-dark">%s</strong> telah berhasil diperbarui.' : 'Data kehadiran tanggal <strong class="text-dark">%s</strong> telah berhasil tersimpan.';
-            $sessionText = $isUpdate ? 'Data kehadiran tanggal %s berhasil diperbarui.' : 'Data kehadiran tanggal %s berhasil disimpan.';
+            $typeLabel = ($type === 'bulanan') ? 'Karyawan Bulanan' : 'Karyawan Borongan';
+            $titleText = $isUpdate ? "Absensi $typeLabel Diperbarui!" : "Absensi $typeLabel Disimpan!";
+            $descText = $isUpdate ? 'Data kehadiran <strong>' . $typeLabel . '</strong> tanggal <strong class="text-dark">%s</strong> telah berhasil diperbarui.' : 'Data kehadiran <strong>' . $typeLabel . '</strong> tanggal <strong class="text-dark">%s</strong> telah berhasil tersimpan.';
+            $sessionText = $isUpdate ? "Data kehadiran $typeLabel tanggal %s berhasil diperbarui." : "Data kehadiran $typeLabel tanggal %s berhasil disimpan.";
             
             $msg = sprintf(
                 '<div class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="z-index: 1055; background: rgba(0,0,0,0.5);" id="attendance-success-overlay" onclick="this.remove()">' .

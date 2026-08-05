@@ -432,7 +432,7 @@ foreach ($includedItems as $it) {
                         </div>
                     </div>
 
-                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Pembulatan Gaji (F4-07)</h6>
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Pembulatan Gaji</h6>
                     <div class="row g-3 align-items-center bg-light p-3 rounded-3 border">
                         <div class="col-md-6">
                             <p class="text-muted small mb-0">Jika angka net gaji tidak bulat (misal belakangnya bukan 000), Anda bisa menginput nominal angka penambah pembulatan di sini agar gajinya pas.</p>
