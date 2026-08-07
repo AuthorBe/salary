@@ -114,12 +114,26 @@
                             <tbody>
                                 <?php 
                                     $empGroups = [];
+                                    $productGroups = [];
                                     foreach ($row['details'] as $det) {
                                         $empName = $det['employee_name'];
+                                        $prodName = $det['product_name'];
+                                        
                                         if (!isset($empGroups[$empName])) {
                                             $empGroups[$empName] = [];
                                         }
                                         $empGroups[$empName][] = $det;
+                                        
+                                        if (!isset($productGroups[$prodName])) {
+                                            $productGroups[$prodName] = [
+                                                'qty' => 0,
+                                                'bal' => 0,
+                                                'upah' => 0
+                                            ];
+                                        }
+                                        $productGroups[$prodName]['qty'] += $det['qty'];
+                                        $productGroups[$prodName]['bal'] += $det['bal'];
+                                        $productGroups[$prodName]['upah'] += $det['upah'];
                                     }
                                 ?>
                                 <?php foreach ($empGroups as $empName => $items): ?>
@@ -142,6 +156,33 @@
                                     <?php endforeach; ?>
                                 <?php endforeach; ?>
                             </tbody>
+                            <tbody class="border-top-0">
+                                <tr class="bg-light">
+                                    <td colspan="3" class="py-3 px-4 fw-bold text-dark border-bottom-0" style="border-top: 2px dashed #dee2e6;">
+                                        <i class="bi bi-list-check text-secondary me-2"></i> Rekap Total Per Item
+                                    </td>
+                                </tr>
+                                <?php foreach ($productGroups as $prodName => $prodTotals): ?>
+                                <tr>
+                                    <td class="px-4 ps-5"><span class="badge bg-secondary text-white shadow-sm px-3 py-2"><?= e($prodName) ?></span></td>
+                                    <td class="px-4 text-end text-nowrap">
+                                        <span class="fw-bold text-primary"><?= number_format($prodTotals['qty'], 0, ',', '.') ?> Pcs</span><br>
+                                        <small class="text-muted fw-bold"><?= (float)$prodTotals['bal'] ?> Bal</small>
+                                    </td>
+                                    <td class="px-4 text-end fw-bold text-success fs-6 text-nowrap"><?= formatRupiah($prodTotals['upah']) ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-light fw-bold border-top border-2">
+                                    <td class="py-3 px-4 text-end text-dark fs-6">TOTAL KESELURUHAN:</td>
+                                    <td class="py-3 px-4 text-end text-nowrap">
+                                        <span class="fw-bold text-primary fs-6"><?= number_format($row['total_qty'], 0, ',', '.') ?> Pcs</span><br>
+                                        <small class="text-muted fw-bold"><?= (float)$row['total_bal'] ?> Bal</small>
+                                    </td>
+                                    <td class="py-3 px-4 text-end fw-bold text-success fs-5 text-nowrap"><?= formatRupiah($row['total_upah']) ?></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
