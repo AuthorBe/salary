@@ -112,16 +112,18 @@
                 <th rowspan="2">Gaji Pokok</th>
                 <th rowspan="2">Kehadiran<br>(Hari / Rp)</th>
                 <th rowspan="2">Produksi (Rp)</th>
-                <th colspan="3">Tambahan (Rp)</th>
-                <th colspan="3">Potongan (Rp)</th>
+                <th colspan="4">Tambahan (Rp)</th>
+                <th colspan="4">Potongan (Rp)</th>
                 <th rowspan="2">Netto (Rp)</th>
             </tr>
             <tr>
                 <th>Lembur</th>
                 <th>Bulanan</th>
+                <th>Tarik<br>Tabungan</th>
                 <th>Lain-lain</th>
                 <th>Hutang</th>
                 <th>Penarikan</th>
+                <th>Setor<br>Tabungan</th>
                 <th>Lain-lain</th>
             </tr>
         </thead>
@@ -133,9 +135,11 @@
                 $totProduksi = 0;
                 $totLembur = 0;
                 $totTunjBulanan = 0;
+                $totTarikTabungan = 0;
                 $totTunjLain = 0;
                 $totKasbon = 0;
                 $totPenarikan = 0;
+                $totSetorTabungan = 0;
                 $totPotLain = 0;
                 $totNetto = 0;
 
@@ -145,9 +149,11 @@
                     $totProduksi += $row['total_upah_produksi'];
                     $totLembur += $row['total_upah_lembur'] ?? 0;
                     $totTunjBulanan += $row['tunjangan_bulanan'];
+                    $totTarikTabungan += $row['penarikan_tabungan'] ?? 0;
                     $totTunjLain += $row['tunjangan_lain'] + $row['nominal_pembulatan'];
                     $totKasbon += $row['total_potongan_kasbon'];
                     $totPenarikan += $row['total_penarikan_gaji'] ?? 0;
+                    $totSetorTabungan += $row['potongan_tabungan'] ?? 0;
                     $totPotLain += $row['potongan_lain'];
                     $totNetto += $row['gaji_bersih'];
             ?>
@@ -160,9 +166,11 @@
                 <td class="text-right"><?= number_format((float)$row['total_upah_produksi'], 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format((float)($row['total_upah_lembur'] ?? 0), 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format((float)$row['tunjangan_bulanan'], 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format($row['penarikan_tabungan'] ?? 0, 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format($row['tunjangan_lain'] + $row['nominal_pembulatan'], 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format($row['total_potongan_kasbon'], 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format($row['total_penarikan_gaji'] ?? 0, 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format($row['potongan_tabungan'] ?? 0, 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format((float)$row['potongan_lain'], 0, ',', '.') ?></td>
                 <td class="text-right" style="font-weight:bold;"><?= number_format((float)$row['gaji_bersih'], 0, ',', '.') ?></td>
             </tr>
@@ -172,7 +180,7 @@
 
             <?php if (empty($items)): ?>
             <tr>
-                <td colspan="12" class="text-center">Tidak ada data rincian pada periode ini.</td>
+                <td colspan="15" class="text-center">Tidak ada data rincian pada periode ini.</td>
             </tr>
             <?php endif; ?>
         </tbody>
@@ -184,9 +192,11 @@
                 <th class="text-right"><?= number_format($totProduksi, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totLembur, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totTunjBulanan, 0, ',', '.') ?></th>
+                <th class="text-right"><?= number_format($totTarikTabungan, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totTunjLain, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totKasbon, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totPenarikan, 0, ',', '.') ?></th>
+                <th class="text-right"><?= number_format($totSetorTabungan, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totPotLain, 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($totNetto, 0, ',', '.') ?></th>
             </tr>

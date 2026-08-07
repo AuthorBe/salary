@@ -35,6 +35,34 @@
     <?php unset($_SESSION['flash_error']); ?>
 <?php endif; ?>
 
+<?php if (isset($_SESSION['swal_warning'])): ?>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Perhatian!',
+                html: `<?= $_SESSION['swal_warning'] ?>`,
+                confirmButtonText: 'Oke, Saya Paham',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false,
+                customClass: {
+                    popup: 'rounded-4 shadow-lg border-0',
+                    title: 'fw-bold text-dark',
+                    content: 'text-secondary',
+                    confirmButton: 'btn btn-primary rounded-pill px-5 py-2 fw-semibold shadow-sm'
+                },
+                buttonsStyling: false
+            });
+        } else {
+            alert('Perhatian!\n\n<?= strip_tags(str_replace("<br>", "\n", $_SESSION['swal_warning'])) ?>');
+        }
+    });
+    </script>
+    <?php unset($_SESSION['swal_warning']); ?>
+<?php endif; ?>
+
 <div class="card border-0 shadow-sm rounded-4">
     <div class="card-body p-4">
         <?php if (empty($payrolls)): ?>

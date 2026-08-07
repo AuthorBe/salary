@@ -125,16 +125,18 @@
                 <th rowspan="2">Gaji Pokok</th>
                 <th rowspan="2">Kehadiran<br>(Hari / Rp)</th>
                 <th rowspan="2">Produksi (Rp)</th>
-                <th colspan="3">Tambahan (Rp)</th>
-                <th colspan="3">Potongan (Rp)</th>
+                <th colspan="4">Tambahan (Rp)</th>
+                <th colspan="4">Potongan (Rp)</th>
                 <th rowspan="2">Netto (Rp)</th>
             </tr>
             <tr>
                 <th>Lembur</th>
                 <th>Bulanan</th>
+                <th>Tarik<br>Tabungan</th>
                 <th>Lain-lain</th>
                 <th>Hutang</th>
                 <th>Penarikan</th>
+                <th>Setor<br>Tabungan</th>
                 <th>Lain-lain</th>
             </tr>
         </thead>
@@ -142,8 +144,8 @@
             <?php 
                 $grandTotal = [
                     'pokok' => 0, 'kehadiran' => 0, 'produksi' => 0,
-                    'lembur' => 0, 'tunj_bulanan' => 0, 'tunj_lain' => 0,
-                    'kasbon' => 0, 'penarikan' => 0, 'pot_lain' => 0, 'netto' => 0
+                    'lembur' => 0, 'tunj_bulanan' => 0, 'tarik_tabungan' => 0, 'tunj_lain' => 0,
+                    'kasbon' => 0, 'penarikan' => 0, 'setor_tabungan' => 0, 'pot_lain' => 0, 'netto' => 0
                 ];
                 
                 $currentType = '';
@@ -154,8 +156,8 @@
                 $initSubTotal = function() {
                     return [
                         'pokok' => 0, 'kehadiran' => 0, 'produksi' => 0,
-                        'lembur' => 0, 'tunj_bulanan' => 0, 'tunj_lain' => 0,
-                        'kasbon' => 0, 'penarikan' => 0, 'pot_lain' => 0, 'netto' => 0
+                        'lembur' => 0, 'tunj_bulanan' => 0, 'tarik_tabungan' => 0, 'tunj_lain' => 0,
+                        'kasbon' => 0, 'penarikan' => 0, 'setor_tabungan' => 0, 'pot_lain' => 0, 'netto' => 0
                     ];
                 };
 
@@ -168,9 +170,11 @@
                     echo '<th class="text-right">' . number_format((float)$st['produksi'], 0, ',', '.') . '</th>';
                     echo '<th class="text-right">' . number_format((float)$st['lembur'], 0, ',', '.') . '</th>';
                     echo '<th class="text-right">' . number_format((float)$st['tunj_bulanan'], 0, ',', '.') . '</th>';
+                    echo '<th class="text-right">' . number_format((float)$st['tarik_tabungan'], 0, ',', '.') . '</th>';
                     echo '<th class="text-right">' . number_format((float)$st['tunj_lain'], 0, ',', '.') . '</th>';
                     echo '<th class="text-right">' . number_format((float)$st['kasbon'], 0, ',', '.') . '</th>';
                     echo '<th class="text-right">' . number_format((float)$st['penarikan'], 0, ',', '.') . '</th>';
+                    echo '<th class="text-right">' . number_format((float)$st['setor_tabungan'], 0, ',', '.') . '</th>';
                     echo '<th class="text-right">' . number_format((float)$st['pot_lain'], 0, ',', '.') . '</th>';
                     echo '<th class="text-right">' . number_format((float)$st['netto'], 0, ',', '.') . '</th>';
                     echo '</tr>';
@@ -184,8 +188,13 @@
                         $currentType = $row['tipe_gaji'];
                         $subTotal = $initSubTotal();
                         $no = 1;
-                        echo '<tr class="type-header"><th colspan="12">KARYAWAN ' . strtoupper($currentType) . '</th></tr>';
+                        echo '<tr class="type-header-row"><td colspan="14" style="background:#ddd; font-weight:bold; font-size:12px; text-transform:uppercase; padding: 8px;">Karyawan ' . $currentType . '</td></tr>';
                     }
+
+                    $tambahanLain = $row['tunjangan_lain'] + $row['nominal_pembulatan'];
+                    $potonganLain = $row['potongan_lain'];
+                    $tarikTabungan = $row['penarikan_tabungan'] ?? 0;
+                    $setorTabungan = $row['potongan_tabungan'] ?? 0;
 
                     // Add to subtotal
                     $subTotal['pokok'] += $row['gaji_pokok'];
@@ -193,10 +202,12 @@
                     $subTotal['produksi'] += $row['total_upah_produksi'];
                     $subTotal['lembur'] += $row['total_upah_lembur'] ?? 0;
                     $subTotal['tunj_bulanan'] += $row['tunjangan_bulanan'];
-                    $subTotal['tunj_lain'] += $row['tunjangan_lain'] + $row['nominal_pembulatan'];
+                    $subTotal['tarik_tabungan'] += $tarikTabungan;
+                    $subTotal['tunj_lain'] += $tambahanLain;
                     $subTotal['kasbon'] += $row['total_potongan_kasbon'];
                     $subTotal['penarikan'] += $row['total_penarikan_gaji'] ?? 0;
-                    $subTotal['pot_lain'] += $row['potongan_lain'];
+                    $subTotal['setor_tabungan'] += $setorTabungan;
+                    $subTotal['pot_lain'] += $potonganLain;
                     $subTotal['netto'] += $row['gaji_bersih'];
 
                     // Add to grand total
@@ -205,10 +216,12 @@
                     $grandTotal['produksi'] += $row['total_upah_produksi'];
                     $grandTotal['lembur'] += $row['total_upah_lembur'] ?? 0;
                     $grandTotal['tunj_bulanan'] += $row['tunjangan_bulanan'];
-                    $grandTotal['tunj_lain'] += $row['tunjangan_lain'] + $row['nominal_pembulatan'];
+                    $grandTotal['tarik_tabungan'] += $tarikTabungan;
+                    $grandTotal['tunj_lain'] += $tambahanLain;
                     $grandTotal['kasbon'] += $row['total_potongan_kasbon'];
                     $grandTotal['penarikan'] += $row['total_penarikan_gaji'] ?? 0;
-                    $grandTotal['pot_lain'] += $row['potongan_lain'];
+                    $grandTotal['setor_tabungan'] += $setorTabungan;
+                    $grandTotal['pot_lain'] += $potonganLain;
                     $grandTotal['netto'] += $row['gaji_bersih'];
             ?>
             <tr>
@@ -219,10 +232,12 @@
                 <td class="text-right"><?= number_format((float)$row['total_upah_produksi'], 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format((float)($row['total_upah_lembur'] ?? 0), 0, ',', '.') ?></td>
                 <td class="text-right"><?= number_format((float)$row['tunjangan_bulanan'], 0, ',', '.') ?></td>
-                <td class="text-right"><?= number_format($row['tunjangan_lain'] + $row['nominal_pembulatan'], 0, ',', '.') ?></td>
-                <td class="text-right"><?= number_format($row['total_potongan_kasbon'], 0, ',', '.') ?></td>
-                <td class="text-right"><?= number_format($row['total_penarikan_gaji'] ?? 0, 0, ',', '.') ?></td>
-                <td class="text-right"><?= number_format((float)$row['potongan_lain'], 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format((float)$tarikTabungan, 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format((float)$tambahanLain, 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format((float)$row['total_potongan_kasbon'], 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format((float)($row['total_penarikan_gaji'] ?? 0), 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format((float)$setorTabungan, 0, ',', '.') ?></td>
+                <td class="text-right"><?= number_format((float)$potonganLain, 0, ',', '.') ?></td>
                 <td class="text-right" style="font-weight:bold;"><?= number_format((float)$row['gaji_bersih'], 0, ',', '.') ?></td>
             </tr>
             <?php 
@@ -242,9 +257,11 @@
                 <th class="text-right"><?= number_format($grandTotal['produksi'], 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($grandTotal['lembur'], 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($grandTotal['tunj_bulanan'], 0, ',', '.') ?></th>
+                <th class="text-right"><?= number_format($grandTotal['tarik_tabungan'], 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($grandTotal['tunj_lain'], 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($grandTotal['kasbon'], 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($grandTotal['penarikan'], 0, ',', '.') ?></th>
+                <th class="text-right"><?= number_format($grandTotal['setor_tabungan'], 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($grandTotal['pot_lain'], 0, ',', '.') ?></th>
                 <th class="text-right"><?= number_format($grandTotal['netto'], 0, ',', '.') ?></th>
             </tr>

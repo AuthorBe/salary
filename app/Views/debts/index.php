@@ -393,7 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('pay_amount').value = '';
             document.getElementById('pay_error_msg').classList.add('d-none');
             
-            new bootstrap.Modal(document.getElementById('modalPayManual')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalPayManual')).show();
         });
     });
 
@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.btn-edit-debt').forEach(btn => {
         btn.addEventListener('click', function() {
             fetchDebtForm(this.getAttribute('data-id'));
-            new bootstrap.Modal(document.getElementById('modalDebtForm')).show();
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('modalDebtForm')).show();
         });
     });
 

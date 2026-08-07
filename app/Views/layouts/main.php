@@ -125,7 +125,13 @@
             <?php if (hasPermission('debts')): ?>
             <a href="<?= url('/debts') ?>" class="nav-item <?= ($pageKey ?? '') === 'debts' ? 'active' : '' ?>">
                 <i class="bi bi-credit-card-fill" style="color: #ef4444;"></i>
-                <span>Kasbon</span>
+                <span>Kasbon Karyawan</span>
+            </a>
+            <?php endif; ?>
+            <?php if (hasPermission('savings')): ?>
+            <a href="<?= url('/savings') ?>" class="nav-item <?= ($pageKey ?? '') === 'savings' ? 'active' : '' ?>">
+                <i class="bi bi-safe-fill" style="color: #10b981;"></i>
+                <span>Tabungan</span>
             </a>
             <?php endif; ?>
         </div>

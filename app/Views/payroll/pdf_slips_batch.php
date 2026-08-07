@@ -123,8 +123,14 @@ foreach ($items as $index => $row):
                     <td class="text-right"><?= number_format((float)$row['tunjangan_lain'], 0, ',', '.') ?></td>
                 </tr>
                 <?php endif; ?>
+                <?php if ((float)($row['penarikan_tabungan'] ?? 0) > 0): ?>
+                <tr>
+                    <td>Tarik Tabungan</td>
+                    <td class="text-right"><?= number_format((float)$row['penarikan_tabungan'], 0, ',', '.') ?></td>
+                </tr>
+                <?php endif; ?>
                 <?php 
-                    $totalPendapatan = (float)$row['gaji_pokok'] + (float)$row['total_uang_kehadiran'] + (float)$row['total_upah_produksi'] + (float)($row['total_upah_lembur'] ?? 0) + (float)$row['tunjangan_bulanan'] + (float)$row['tunjangan_lain'];
+                    $totalPendapatan = (float)$row['gaji_pokok'] + (float)$row['total_uang_kehadiran'] + (float)$row['total_upah_produksi'] + (float)($row['total_upah_lembur'] ?? 0) + (float)$row['tunjangan_bulanan'] + (float)$row['tunjangan_lain'] + (float)($row['penarikan_tabungan'] ?? 0);
                 ?>
                 <tr class="total-row">
                     <td>Total Pendapatan</td>
@@ -136,7 +142,7 @@ foreach ($items as $index => $row):
             <strong>POTONGAN</strong>
             <table class="details-table">
                 <?php 
-                    $totalPotongan = (float)$row['total_potongan_kasbon'] + (float)$row['potongan_lain'] + (float)($row['total_penarikan_gaji'] ?? 0);
+                    $totalPotongan = (float)$row['total_potongan_kasbon'] + (float)$row['potongan_lain'] + (float)($row['total_penarikan_gaji'] ?? 0) + (float)($row['potongan_tabungan'] ?? 0);
                     $rincian = json_decode($row['rincian_json'], true) ?? [];
                 ?>
                 <?php if ((float)$row['total_potongan_kasbon'] > 0): ?>
@@ -162,6 +168,12 @@ foreach ($items as $index => $row):
                 <tr>
                     <td><?= htmlspecialchars(!empty(trim($row['catatan_potongan_lain'] ?? '')) ? trim($row['catatan_potongan_lain']) : 'Potongan Lain') ?></td>
                     <td class="text-right"><?= number_format((float)$row['potongan_lain'], 0, ',', '.') ?></td>
+                </tr>
+                <?php endif; ?>
+                <?php if ((float)($row['potongan_tabungan'] ?? 0) > 0): ?>
+                <tr>
+                    <td>Setor Tabungan</td>
+                    <td class="text-right"><?= number_format((float)$row['potongan_tabungan'], 0, ',', '.') ?></td>
                 </tr>
                 <?php endif; ?>
                 <?php

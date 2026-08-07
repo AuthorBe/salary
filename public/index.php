@@ -178,6 +178,13 @@ $routes = [
     'POST /debts/pay-manual'            => [\App\Controllers\DebtController::class, 'payManual'],
     'POST /debts/delete'                => [\App\Controllers\DebtController::class, 'destroy'],
 
+    // Tabungan Karyawan
+    'GET /savings'                      => [\App\Controllers\SavingController::class, 'index'],
+    'POST /savings/store'               => [\App\Controllers\SavingController::class, 'store'],
+    'GET /savings/history'              => [\App\Controllers\SavingController::class, 'getHistory'],
+    'POST /savings/update'              => [\App\Controllers\SavingController::class, 'update'],
+    'POST /savings/delete'              => [\App\Controllers\SavingController::class, 'delete'],
+
     // ── Phase 4: Mesin Perhitungan Gaji (Payroll Engine) ────────────────────
     'GET /payroll'                      => [\App\Controllers\PayrollController::class, 'index'],
     'GET /payroll/create'               => [\App\Controllers\PayrollController::class, 'create'],

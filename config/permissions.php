@@ -31,6 +31,7 @@ return [
 
     // ── Fase 3 ──────────────────────────────────────────────────────────────
     'debts'           => 'Kasbon & Hutang',
+    'savings'         => 'Tabungan Karyawan',
 
     // ── Fase 4 ──────────────────────────────────────────────────────────────
     'payroll'         => 'Manajemen Payroll',

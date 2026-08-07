@@ -127,6 +127,22 @@ class PayrollController
             return;
         }
 
+        // Check if there's any approved payroll that overlaps with the requested period
+        $overlapExists = $db->prepare("
+            SELECT id, periode_awal, periode_akhir 
+            FROM penggajian 
+            WHERE type = ? 
+              AND status = 'approved'
+              AND periode_awal <= ? 
+              AND periode_akhir >= ?
+        ");
+        $overlapExists->execute([$type, $period_end, $period_start]);
+        if ($overlap = $overlapExists->fetch()) {
+            $_SESSION['flash_error'] = 'Gagal! Terdapat bentrok tanggal dengan payroll ' . ucfirst($type) . ' yang sudah disetujui (Periode: ' . date('d M Y', strtotime($overlap['periode_awal'])) . ' s/d ' . date('d M Y', strtotime($overlap['periode_akhir'])) . '). Pastikan rentang tanggal yang Anda buat tidak tumpang tindih dengan data sebelumnya.';
+            redirect('/payroll/create?type=' . $type);
+            return;
+        }
+
         try {
             $db->beginTransaction();
 
@@ -340,9 +356,11 @@ class PayrollController
         $items = $piModel->getByRunId($id);
 
         $debtModel = new \App\Models\Debt();
+        $savingModel = new \App\Models\Saving();
         foreach ($items as &$item) {
             $activeDebts = $debtModel->getActiveDebtsByEmployeeId((int)$item['id_karyawan']);
             $item['total_active_kasbon'] = array_sum(array_column($activeDebts, 'sisa_nominal'));
+            $item['saldo_tabungan'] = $savingModel->getBalance((int)$item['id_karyawan']);
         }
         unset($item);
 
@@ -366,6 +384,8 @@ class PayrollController
         $otherAllowancesNotes = trim($_POST['catatan_tunjangan_lain'] ?? '');
         $otherDeductions = (float)parseRupiah($_POST['potongan_lain'] ?? '0');
         $otherDeductionsNotes = trim($_POST['catatan_potongan_lain'] ?? '');
+        $tabunganSetor = (float)parseRupiah($_POST['potongan_tabungan'] ?? '0');
+        $tabunganTarik = (float)parseRupiah($_POST['penarikan_tabungan'] ?? '0');
         $roundingAmount = (float)parseRupiah($_POST['nominal_pembulatan'] ?? '0');
 
         $db = getDB();
@@ -381,6 +401,16 @@ class PayrollController
         }
 
         $details = json_decode($item['rincian_json'] ?? '[]', true) ?: [];
+
+        if ($tabunganTarik > 0) {
+            $savingModel = new \App\Models\Saving();
+            $saldoTabungan = $savingModel->getBalance((int)$item['id_karyawan']);
+            if ($tabunganTarik > $saldoTabungan) {
+                $_SESSION['flash_error'] = 'Gagal Menyimpan! Penarikan tabungan (Rp ' . number_format($tabunganTarik, 0, ',', '.') . ') melebihi total saldo karyawan (Rp ' . number_format($saldoTabungan, 0, ',', '.') . ').';
+                redirect('/payroll/preview?id=' . $runId);
+                return;
+            }
+        }
         
         if ($debtDeduction > 0) {
             $debtModel = new \App\Models\Debt();
@@ -419,7 +449,7 @@ class PayrollController
         $monthly = (float)$item['tunjangan_bulanan'];
         $penarikan = (float)($item['total_penarikan_gaji'] ?? 0);
 
-        $newNet = $base + $att + $prod + $lembur + $monthly + $otherAllowances - $debtDeduction - $otherDeductions - $penarikan + $roundingAmount;
+        $newNet = $base + $att + $prod + $lembur + $monthly + $otherAllowances - $debtDeduction - $otherDeductions - $tabunganSetor + $tabunganTarik - $penarikan + $roundingAmount;
         
         if ($newNet < 0) {
             $_SESSION['flash_error'] = 'Gagal Menyimpan! Total potongan melebihi total pendapatan. Gaji tidak boleh minus.';
@@ -432,13 +462,15 @@ class PayrollController
             SET total_potongan_kasbon = ?, rincian_json = ?,
                 tunjangan_lain = ?, catatan_tunjangan_lain = ?, 
                 potongan_lain = ?, catatan_potongan_lain = ?, 
+                potongan_tabungan = ?, penarikan_tabungan = ?,
                 nominal_pembulatan = ?, gaji_bersih = ?
             WHERE id = ?
         ");
         $update->execute([
             $debtDeduction, $newDetailsJson,
             $otherAllowances, $otherAllowancesNotes, 
-            $otherDeductions, $otherDeductionsNotes, 
+            $otherDeductions, $otherDeductionsNotes,
+            $tabunganSetor, $tabunganTarik,
             $roundingAmount, $newNet, $itemId
         ]);
 
@@ -549,6 +581,30 @@ class PayrollController
                             $updPenarikan->execute([$runId, (int)$p['id_penarikan']]);
                         }
                     }
+
+                    // Tabungan: Setor (potongan gaji) & Tarik (penambahan gaji)
+                    $savingModel = new \App\Models\Saving();
+                    $savingTransModel = new \App\Models\SavingTransaction();
+
+                    if ((float)$item['potongan_tabungan'] > 0) {
+                        $amt = (float)$item['potongan_tabungan'];
+                        $savingTransModel->create(
+                            (int)$item['id_karyawan'], 'deposit', $amt, 'payroll', date('Y-m-d'), (int)$item['id'], 'Setoran tabungan via payroll #' . $runId
+                        );
+                        $savingModel->adjustBalance((int)$item['id_karyawan'], $amt);
+                    }
+
+                    if ((float)$item['penarikan_tabungan'] > 0) {
+                        $amt = (float)$item['penarikan_tabungan'];
+                        $currentSaldo = $savingModel->getBalance((int)$item['id_karyawan']);
+                        if ($amt > $currentSaldo) {
+                            throw new \Exception('Saldo tabungan karyawan ' . ($item['employee_name'] ?? 'ID ' . $item['id_karyawan']) . ' tidak mencukupi untuk penarikan sebesar Rp ' . number_format($amt, 0, ',', '.') . '. Karyawan mungkin telah menarik tabungan secara manual setelah draft dibuat. Silakan hapus draft dan generate ulang, atau sesuaikan kembali rincian karyawan ini.');
+                        }
+                        $savingTransModel->create(
+                            (int)$item['id_karyawan'], 'withdrawal', $amt, 'payroll', date('Y-m-d'), (int)$item['id'], 'Penarikan tabungan via payroll #' . $runId
+                        );
+                        $savingModel->adjustBalance((int)$item['id_karyawan'], -$amt);
+                    }
                 }
             }
 
@@ -601,6 +657,7 @@ class PayrollController
 
         try {
             $db->beginTransaction();
+            $tabunganWarning = [];
 
             // 1. Unlock Attendances, Productions, and Penarikan Gaji
             $db->prepare("UPDATE absensi SET id_penggajian = NULL WHERE id_penggajian = ?")->execute([$runId]);
@@ -625,6 +682,35 @@ class PayrollController
                 
                 // Delete the deductions
                 $db->prepare("DELETE FROM potongan_kasbon WHERE id_rincian_penggajian = ?")->execute([$item['id']]);
+
+                // Revert Tabungan
+                $savingModel = new \App\Models\Saving();
+                $stStmt = $db->prepare("SELECT id, tipe, jumlah FROM transaksi_tabungan WHERE id_rincian_penggajian = ?");
+                $stStmt->execute([$item['id']]);
+                $savingTrans = $stStmt->fetchAll();
+
+                foreach ($savingTrans as $st) {
+                    if ($st['tipe'] === 'deposit') {
+                        // Check if rollback will cause negative balance
+                        $currentSaldo = $savingModel->getBalance((int)$item['id_karyawan']);
+                        if ($currentSaldo - (float)$st['jumlah'] < 0) {
+                            $selisih = (float)$st['jumlah'] - $currentSaldo;
+                            $tabunganWarning[] = "Karyawan <strong>" . e($item['employee_name'] ?? 'ID ' . $item['id_karyawan']) . "</strong> kurang " . formatRupiah((int)$selisih);
+                            
+                            // Hanya kurangi saldo yang tersisa (jadi 0)
+                            if ($currentSaldo > 0) {
+                                $savingModel->adjustBalance((int)$item['id_karyawan'], -$currentSaldo);
+                            }
+                        } else {
+                            $savingModel->adjustBalance((int)$item['id_karyawan'], -(float)$st['jumlah']);
+                        }
+                    } else if ($st['tipe'] === 'withdrawal') {
+                        $savingModel->adjustBalance((int)$item['id_karyawan'], (float)$st['jumlah']);
+                    }
+                }
+                
+                // Delete saving transactions
+                $db->prepare("DELETE FROM transaksi_tabungan WHERE id_rincian_penggajian = ?")->execute([$item['id']]);
             }
 
             // 3. Delete Payroll Items
@@ -634,7 +720,18 @@ class PayrollController
             $prModel->delete($runId);
 
             $db->commit();
-            $_SESSION['flash_success'] = 'Payroll berhasil dibatalkan dan data telah dikembalikan seperti semula.';
+            
+            if (!empty($tabunganWarning)) {
+                $warnText = "Payroll berhasil dibatalkan, namun ada catatan khusus terkait Tabungan:<br><br><ul class='mb-3 text-start' style='font-size: 0.9rem;'>";
+                foreach ($tabunganWarning as $w) {
+                    $warnText .= "<li>$w</li>";
+                }
+                $warnText .= "</ul><p class='text-start mb-0' style='font-size: 0.9rem;'>Saldo tabungan mereka tidak dikurangi sepenuhnya (tidak dikembalikan ke kas perusahaan) karena akan menyebabkan saldo minus (karyawan keburu mencairkan uangnya sebelum payroll ini dibatalkan).</p>";
+                $_SESSION['swal_warning'] = $warnText;
+            } else {
+                $_SESSION['flash_success'] = 'Payroll berhasil dibatalkan dan data telah dikembalikan seperti semula.';
+            }
+            
             redirect('/payroll');
 
         } catch (\Throwable $e) {

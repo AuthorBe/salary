@@ -171,7 +171,7 @@ foreach ($includedItems as $it) {
                 <tbody>
                     <?php $no = 1; foreach ($includedItems as $it): 
                         $pendapatanAwal = $it['gaji_pokok'] + $it['total_uang_kehadiran'] + $it['total_upah_produksi'] + ($it['total_upah_lembur'] ?? 0) + $it['tunjangan_bulanan'];
-                        $penyesuaian = $it['tunjangan_lain'] + $it['nominal_pembulatan'] - $it['potongan_lain'];
+                        $penyesuaian = $it['tunjangan_lain'] + $it['nominal_pembulatan'] + ($it['penarikan_tabungan'] ?? 0) - $it['potongan_lain'];
                     ?>
                         <tr>
                             <td class="ps-3 fw-semibold text-muted"><?= $no++ ?></td>
@@ -200,7 +200,7 @@ foreach ($includedItems as $it) {
                                 </div>
                             </td>
                             <td class="text-end" style="min-width: 150px;">
-                                <?php $totalPotongan = ($it['total_potongan_kasbon'] ?? 0) + ($it['total_penarikan_gaji'] ?? 0); ?>
+                                <?php $totalPotongan = ($it['total_potongan_kasbon'] ?? 0) + ($it['total_penarikan_gaji'] ?? 0) + ($it['potongan_tabungan'] ?? 0); ?>
                                 <div class="fw-bold <?= $totalPotongan > 0 ? 'text-danger' : 'text-muted' ?> mb-1 pb-1 border-bottom">
                                     <?= formatRupiah((int)$totalPotongan) ?>
                                 </div>
@@ -220,17 +220,34 @@ foreach ($includedItems as $it) {
                                         </div>
                                     <?php endif; ?>
                                     <?php if (($it['total_penarikan_gaji'] ?? 0) > 0): ?>
-                                        <div class="d-flex justify-content-between"><span>Penarikan</span> <span class="text-danger"><?= formatRupiah((int)$it['total_penarikan_gaji']) ?></span></div>
+                                        <div class="d-flex justify-content-between"><span>Penarikan Gaji</span> <span class="text-danger"><?= formatRupiah((int)$it['total_penarikan_gaji']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if (($it['potongan_tabungan'] ?? 0) > 0): ?>
+                                        <div class="d-flex justify-content-between"><span>Setor Tabungan</span> <span class="text-danger"><?= formatRupiah((int)$it['potongan_tabungan']) ?></span></div>
                                     <?php endif; ?>
                                 </div>
                             </td>
                             <td class="text-end">
-                                <div class="fw-semibold <?= $penyesuaian > 0 ? 'text-success' : ($penyesuaian < 0 ? 'text-danger' : 'text-muted') ?>">
+                                <div class="fw-semibold <?= $penyesuaian > 0 ? 'text-success' : ($penyesuaian < 0 ? 'text-danger' : 'text-muted') ?> mb-1 pb-1 border-bottom">
                                     <?= $penyesuaian > 0 ? '+' : '' ?><?= formatRupiah((int)$penyesuaian) ?>
                                 </div>
+                                <div class="text-muted d-flex flex-column gap-1" style="font-size: 0.75rem;">
+                                    <?php if (($it['tunjangan_lain'] ?? 0) > 0): ?>
+                                        <div class="d-flex justify-content-between text-success"><span>Bonus Lain</span> <span>+<?= formatRupiah((int)$it['tunjangan_lain']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if (($it['penarikan_tabungan'] ?? 0) > 0): ?>
+                                        <div class="d-flex justify-content-between text-success"><span>Tarik Tabungan</span> <span>+<?= formatRupiah((int)$it['penarikan_tabungan']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if (($it['nominal_pembulatan'] ?? 0) > 0): ?>
+                                        <div class="d-flex justify-content-between text-success"><span>Pembulatan</span> <span>+<?= formatRupiah((int)$it['nominal_pembulatan']) ?></span></div>
+                                    <?php endif; ?>
+                                    <?php if (($it['potongan_lain'] ?? 0) > 0): ?>
+                                        <div class="d-flex justify-content-between text-danger"><span>Potongan Manual</span> <span>-<?= formatRupiah((int)$it['potongan_lain']) ?></span></div>
+                                    <?php endif; ?>
+                                </div>
                                 <?php if ($it['catatan_tunjangan_lain'] || $it['catatan_potongan_lain']): ?>
-                                    <small class="text-muted d-block text-truncate" style="max-width: 150px; font-size: 0.7rem;" title="<?= e($it['catatan_tunjangan_lain'] . ' ' . $it['catatan_potongan_lain']) ?>">
-                                        <i class="bi bi-info-circle"></i> Info
+                                    <small class="text-muted d-block mt-2 text-truncate" style="max-width: 150px; font-size: 0.7rem;" title="<?= e(trim($it['catatan_tunjangan_lain'] . ' | ' . $it['catatan_potongan_lain'], ' |')) ?>">
+                                        <i class="bi bi-info-circle"></i> Catatan Manual
                                     </small>
                                 <?php endif; ?>
                             </td>
@@ -256,6 +273,9 @@ foreach ($includedItems as $it) {
                                             data-bnotes="<?= e($it['catatan_tunjangan_lain']) ?>"
                                             data-ded="<?= (int)$it['potongan_lain'] ?>"
                                             data-dnotes="<?= e($it['catatan_potongan_lain']) ?>"
+                                            data-tabungansetor="<?= (int)($it['potongan_tabungan'] ?? 0) ?>"
+                                            data-tabungantarik="<?= (int)($it['penarikan_tabungan'] ?? 0) ?>"
+                                            data-saldotabungan="<?= (int)($it['saldo_tabungan'] ?? 0) ?>"
                                             data-round="<?= (int)$it['nominal_pembulatan'] ?>"
                                             data-net="<?= (int)$it['gaji_bersih'] ?>"
                                             data-maxdebt="<?= (int)$it['total_active_kasbon'] ?>"
@@ -395,8 +415,12 @@ foreach ($includedItems as $it) {
                         </div>
                         <div class="col-md-6">
                             <div class="p-3 bg-danger-subtle border border-danger-subtle rounded-3 text-danger h-100">
-                                <label for="adj_debt_input" class="small fw-bold mb-1 d-block text-danger">POTONGAN HUTANG / KASBON (RP)</label>
+                                <label for="adj_debt_input" class="small fw-bold mb-1 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-1 text-danger">
+                                    <span>POTONGAN HUTANG / KASBON</span>
+                                    <span class="badge bg-white text-danger border border-danger-subtle">Sisa: <span id="info_sisa_kasbon">Rp 0</span></span>
+                                </label>
                                 <input type="text" class="form-control input-rupiah border-danger-subtle text-danger fw-bold fs-4 bg-white enter-nav" id="adj_debt_input" name="total_potongan_kasbon" value="0" onkeyup="calculateNet()">
+                                <div class="text-danger small mt-2 d-none fw-bold" id="err_kasbon"><i class="bi bi-exclamation-triangle-fill"></i> Potongan melebihi sisa hutang karyawan!</div>
                                 
                                 <div id="adj_penarikan_container" class="mt-3 pt-2 border-top border-danger-subtle d-none">
                                     <div class="d-flex justify-content-between small fw-bold">
@@ -432,6 +456,23 @@ foreach ($includedItems as $it) {
                         </div>
                     </div>
 
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-end gap-2 border-bottom pb-2 mb-3 mt-4">
+                        <h6 class="fw-bold text-dark mb-0">Tabungan Karyawan</h6>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">Total Tabungan: <span id="info_saldo_tabungan">Rp 0</span></span>
+                    </div>
+                    <div class="row g-3 mb-4 bg-light p-3 rounded-3 border">
+                        <div class="col-md-6">
+                            <label class="form-label text-success fw-bold">Setor Tabungan (Rp) <small class="fw-normal text-muted">- memotong gaji</small></label>
+                            <input type="text" class="form-control input-rupiah text-success fw-semibold enter-nav" id="adj_tabungan_setor" name="potongan_tabungan" value="0" onkeyup="calculateNet()">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-danger fw-bold">Tarik Tabungan (Rp) <small class="fw-normal text-muted">- menambah gaji</small></label>
+                            <input type="text" class="form-control input-rupiah text-danger fw-semibold enter-nav" id="adj_tabungan_tarik" name="penarikan_tabungan" value="0" onkeyup="calculateNet()">
+                            <div class="text-danger small mt-1 d-none" id="err_tabungan_tarik">Saldo tidak cukup. Saldo: <span id="txt_saldo_tabungan"></span></div>
+                        </div>
+                    </div>
+
+
                     <h6 class="fw-bold text-dark border-bottom pb-2 mb-3">Pembulatan Gaji</h6>
                     <div class="row g-3 align-items-center bg-light p-3 rounded-3 border">
                         <div class="col-md-6">
@@ -464,6 +505,7 @@ let currentBase = 0;
 let currentDebt = 0;
 let currentPenarikan = 0;
 let currentMaxDebt = 0;
+let currentSaldoTabungan = 0;
 
 document.addEventListener('DOMContentLoaded', function() {
     const editBtns = document.querySelectorAll('.btn-edit-item');
@@ -506,6 +548,11 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('adj_bnotes').value = this.dataset.bnotes;
             document.getElementById('adj_ded').value = formatRupiahJs(parseInt(this.dataset.ded)).replace('Rp ', '');
             document.getElementById('adj_dnotes').value = this.dataset.dnotes;
+            document.getElementById('adj_tabungan_setor').value = formatRupiahJs(parseInt(this.dataset.tabungansetor)).replace('Rp ', '');
+            document.getElementById('adj_tabungan_tarik').value = formatRupiahJs(parseInt(this.dataset.tabungantarik)).replace('Rp ', '');
+            currentSaldoTabungan = parseInt(this.dataset.saldotabungan) || 0;
+            document.getElementById('info_sisa_kasbon').innerText = formatRupiahJs(currentMaxDebt);
+            document.getElementById('info_saldo_tabungan').innerText = formatRupiahJs(currentSaldoTabungan);
             document.getElementById('adj_round').value = formatRupiahJs(parseInt(this.dataset.round)).replace('Rp ', '');
             
             calculateNet();
@@ -529,8 +576,20 @@ document.addEventListener('DOMContentLoaded', function() {
             let debtVal = parseRupiah(document.getElementById('adj_debt_input').value);
             let bonus = parseRupiah(document.getElementById('adj_bonus').value);
             let ded = parseRupiah(document.getElementById('adj_ded').value);
+            let tabunganSetor = parseRupiah(document.getElementById('adj_tabungan_setor').value);
+            let tabunganTarik = parseRupiah(document.getElementById('adj_tabungan_tarik').value);
             let round = parseRupiah(document.getElementById('adj_round').value);
-            let net = currentBase - debtVal - currentPenarikan + bonus - ded + round;
+            let net = currentBase - debtVal - currentPenarikan + bonus - ded - tabunganSetor + tabunganTarik + round;
+            
+            if (tabunganTarik > currentSaldoTabungan) {
+                e.preventDefault();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Gagal!', 'Penarikan tabungan melebihi saldo tabungan karyawan.', 'error');
+                } else {
+                    alert('Gagal! Penarikan tabungan melebihi saldo.');
+                }
+                return false;
+            }
             
             if (net < 0) {
                 e.preventDefault();
@@ -542,91 +601,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
 
-            if (debtVal > currentMaxDebt) {
-                e.preventDefault();
-                let excess = debtVal - currentMaxDebt;
-                
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        title: 'Potongan Kasbon Berlebih!',
-                        html: `
-                            <div class="mb-3 text-secondary text-center">
-                                Sisa hutang/kasbon karyawan ini hanya <strong>${formatRupiahJs(currentMaxDebt)}</strong>.
-                            </div>
-                            <div class="p-3 bg-danger-subtle border border-danger-subtle rounded-3 text-danger mb-3 text-center">
-                                Kelebihan potongan sebesar <strong>${formatRupiahJs(excess)}</strong><br>akan otomatis dipindahkan ke kolom <b>Pemotongan Manual Lain</b>.
-                            </div>
-                            <div class="text-dark fw-semibold text-center mb-1">Lanjutkan proses simpan?</div>
-                            <div class="text-muted small text-center">(Tekan <kbd>Enter</kbd> untuk Simpan, <kbd>Backspace</kbd> untuk Batal)</div>
-                        `,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        reverseButtons: true,
-                        confirmButtonText: '<i class="bi bi-check-circle me-1"></i> Ya, Alokasikan & Simpan',
-                        cancelButtonText: '<i class="bi bi-x-circle me-1"></i> Batal',
-                        customClass: {
-                            popup: 'rounded-4 shadow-lg border-0',
-                            confirmButton: 'btn btn-primary rounded-pill px-4 mx-2',
-                            cancelButton: 'btn btn-outline-danger rounded-pill px-4 mx-2',
-                        },
-                        buttonsStyling: false,
-                        allowEnterKey: false,
-                        didOpen: (popup) => {
-                            window._swalKeyHandler = function(e) {
-                                if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    Swal.clickConfirm();
-                                } else if (e.key === 'Backspace') {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    Swal.close();
-                                }
-                            };
-                            // Gunakan parameter ketiga 'true' (useCapture) agar event ditangkap lebih dulu sebelum sampai ke modal/form di bawahnya
-                            document.addEventListener('keydown', window._swalKeyHandler, true);
-                        },
-                        willClose: () => {
-                            if (window._swalKeyHandler) {
-                                document.removeEventListener('keydown', window._swalKeyHandler, true);
-                            }
-                        }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            applyExcessAndSubmit(excess, adjustForm);
-                        }
-                    });
-                } else {
-                    if (confirm(`Sisa kasbon karyawan ini hanya ${formatRupiahJs(currentMaxDebt)}.\nKelebihan potongan sebesar ${formatRupiahJs(excess)} akan otomatis dialokasikan ke 'Pemotongan Manual Lain'.\n\nLanjutkan?`)) {
-                        applyExcessAndSubmit(excess, adjustForm);
-                    }
-                }
-            }
+            // Removal of sweetalert excess logic, prevented by calculateNet disabling submit
         });
     }
 });
-
-function applyExcessAndSubmit(excess, formEl) {
-    const parseRupiah = (val) => parseInt(val.toString().replace(/[^0-9]/g, '') || 0);
-    let debtInput = document.getElementById('adj_debt_input');
-    let dedInput = document.getElementById('adj_ded');
-    let dnotesInput = document.getElementById('adj_dnotes');
-    
-    debtInput.value = formatRupiahJs(currentMaxDebt).replace('Rp ', '');
-    
-    let currentDed = parseRupiah(dedInput.value);
-    dedInput.value = formatRupiahJs(currentDed + excess).replace('Rp ', '');
-    
-    let currentNote = dnotesInput.value.trim();
-    if (currentNote) {
-        dnotesInput.value = currentNote + ' & Sisa lebih potong kasbon';
-    } else {
-        dnotesInput.value = 'Sisa lebih potong kasbon';
-    }
-    
-    calculateNet();
-    formEl.submit();
-}
 
 function calculateNet() {
     const parseRupiah = (val) => parseInt(val.toString().replace(/[^0-9]/g, '') || 0);
@@ -634,18 +612,45 @@ function calculateNet() {
     let debt = parseRupiah(document.getElementById('adj_debt_input').value);
     let bonus = parseRupiah(document.getElementById('adj_bonus').value);
     let ded = parseRupiah(document.getElementById('adj_ded').value);
+    let tabunganSetor = parseRupiah(document.getElementById('adj_tabungan_setor').value);
+    let tabunganTarik = parseRupiah(document.getElementById('adj_tabungan_tarik').value);
     let round = parseRupiah(document.getElementById('adj_round').value);
     
-    let net = currentBase - debt - currentPenarikan + bonus - ded + round;
+    let errTarik = document.getElementById('err_tabungan_tarik');
+    let errKasbon = document.getElementById('err_kasbon');
+    let btnSave = document.querySelector('#modalAdjust form button[type="submit"]');
+    
+    let hasError = false;
+
+    if (tabunganTarik > currentSaldoTabungan) {
+        errTarik.classList.remove('d-none');
+        document.getElementById('txt_saldo_tabungan').innerText = formatRupiahJs(currentSaldoTabungan);
+        hasError = true;
+    } else {
+        errTarik.classList.add('d-none');
+    }
+
+    if (debt > currentMaxDebt) {
+        errKasbon.classList.remove('d-none');
+        hasError = true;
+    } else {
+        errKasbon.classList.add('d-none');
+    }
+
+    btnSave.disabled = hasError;
+
+    let net = currentBase - debt - currentPenarikan + bonus - ded - tabunganSetor + tabunganTarik + round;
     let finalEl = document.getElementById('adj_net_final');
     finalEl.innerText = formatRupiahJs(net);
     
     if (net < 0) {
         finalEl.classList.remove('text-success');
         finalEl.classList.add('text-danger');
+        btnSave.disabled = true;
     } else {
         finalEl.classList.remove('text-danger');
         finalEl.classList.add('text-success');
+        if (!hasError) btnSave.disabled = false;
     }
 }
 

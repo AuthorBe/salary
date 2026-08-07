@@ -136,40 +136,63 @@
                                         $productGroups[$prodName]['upah'] += $det['upah'];
                                     }
                                 ?>
-                                <?php foreach ($empGroups as $empName => $items): ?>
+                                <?php foreach ($empGroups as $empName => $items): 
+                                    $empTotalUpah = array_sum(array_column($items, 'upah'));
+                                ?>
                                     <!-- Header Karyawan -->
-                                    <tr class="bg-light">
-                                        <td colspan="3" class="py-2 px-4 fw-bold text-dark border-bottom-0">
-                                            <i class="bi bi-person-circle text-primary me-2"></i> <?= e($empName) ?>
+                                    <tr style="background-color: #f8fafc; border-top: 2px solid #e2e8f0;">
+                                        <td colspan="2" class="py-3 px-4 fw-bold text-dark border-bottom-0">
+                                            <div class="d-flex align-items-center">
+                                                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 36px; height: 36px;">
+                                                    <i class="bi bi-person-fill fs-5"></i>
+                                                </div>
+                                                <span class="fs-6"><?= e($empName) ?></span>
+                                            </div>
+                                        </td>
+                                        <td class="py-3 px-4 text-end fw-bold text-primary fs-6 border-bottom-0 align-middle">
+                                            <?= formatRupiah($empTotalUpah) ?>
                                         </td>
                                     </tr>
                                     <!-- Daftar Produk Karyawan -->
                                     <?php foreach ($items as $det): ?>
                                     <tr>
-                                        <td class="px-4 ps-5"><span class="badge bg-white text-dark border shadow-sm px-3 py-2"><?= e($det['product_name']) ?></span></td>
-                                        <td class="px-4 text-end text-nowrap">
-                                            <span class="fw-bold text-primary"><?= number_format($det['qty'], 0, ',', '.') ?> Pcs</span><br>
+                                        <td class="px-4 ps-5">
+                                            <div class="bg-secondary bg-opacity-10 text-dark rounded px-3 py-2 fw-medium d-inline-block border border-secondary-subtle" style="font-size: 0.85rem;">
+                                                <i class="bi bi-box-seam text-secondary me-1"></i> <?= e($det['product_name']) ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 text-end text-nowrap align-middle">
+                                            <span class="fw-bold text-dark"><?= number_format($det['qty'], 0, ',', '.') ?> Pcs</span><br>
                                             <small class="text-muted fw-bold"><?= (float)$det['bal'] ?> Bal</small>
                                         </td>
-                                        <td class="px-4 text-end fw-bold text-success fs-6 text-nowrap"><?= formatRupiah($det['upah']) ?></td>
+                                        <td class="px-4 text-end fw-bold text-success fs-6 text-nowrap align-middle"><?= formatRupiah($det['upah']) ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 <?php endforeach; ?>
                             </tbody>
                             <tbody class="border-top-0">
-                                <tr class="bg-light">
-                                    <td colspan="3" class="py-3 px-4 fw-bold text-dark border-bottom-0" style="border-top: 2px dashed #dee2e6;">
-                                        <i class="bi bi-list-check text-secondary me-2"></i> Rekap Total Per Item
+                                <tr style="background-color: #f1f5f9; border-top: 3px solid #cbd5e1;">
+                                    <td colspan="3" class="py-3 px-4 fw-bold text-dark border-bottom-0">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-secondary bg-opacity-10 text-secondary rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 36px; height: 36px;">
+                                                <i class="bi bi-list-check fs-5"></i>
+                                            </div>
+                                            <span class="fs-6">Rekap Total Per Item</span>
+                                        </div>
                                     </td>
                                 </tr>
                                 <?php foreach ($productGroups as $prodName => $prodTotals): ?>
                                 <tr>
-                                    <td class="px-4 ps-5"><span class="badge bg-secondary text-white shadow-sm px-3 py-2"><?= e($prodName) ?></span></td>
-                                    <td class="px-4 text-end text-nowrap">
-                                        <span class="fw-bold text-primary"><?= number_format($prodTotals['qty'], 0, ',', '.') ?> Pcs</span><br>
+                                    <td class="px-4 ps-5">
+                                        <div class="bg-primary bg-opacity-10 text-primary border border-primary-subtle rounded px-3 py-2 fw-bold d-inline-block" style="font-size: 0.85rem;">
+                                            <i class="bi bi-box-fill me-1"></i> <?= e($prodName) ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 text-end text-nowrap align-middle">
+                                        <span class="fw-bold text-dark"><?= number_format($prodTotals['qty'], 0, ',', '.') ?> Pcs</span><br>
                                         <small class="text-muted fw-bold"><?= (float)$prodTotals['bal'] ?> Bal</small>
                                     </td>
-                                    <td class="px-4 text-end fw-bold text-success fs-6 text-nowrap"><?= formatRupiah($prodTotals['upah']) ?></td>
+                                    <td class="px-4 text-end fw-bold text-success fs-6 text-nowrap align-middle"><?= formatRupiah($prodTotals['upah']) ?></td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>

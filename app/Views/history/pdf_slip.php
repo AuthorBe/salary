@@ -135,9 +135,15 @@
                 <td class="text-right"><?= number_format((float)$data['tunjangan_lain'], 0, ',', '.') ?></td>
             </tr>
             <?php endif; ?>
+            <?php if (($data['penarikan_tabungan'] ?? 0) > 0): ?>
+            <tr>
+                <td>Tarik Tabungan</td>
+                <td class="text-right"><?= number_format((float)$data['penarikan_tabungan'], 0, ',', '.') ?></td>
+            </tr>
+            <?php endif; ?>
             
             <?php 
-                $totalPendapatan = $data['gaji_pokok'] + $data['total_uang_kehadiran'] + $data['total_upah_produksi'] + $data['tunjangan_bulanan'] + $data['tunjangan_lain'];
+                $totalPendapatan = $data['gaji_pokok'] + $data['total_uang_kehadiran'] + $data['total_upah_produksi'] + $data['tunjangan_bulanan'] + $data['tunjangan_lain'] + ($data['penarikan_tabungan'] ?? 0);
             ?>
             <tr style="font-weight:bold; background-color:#fafafa;">
                 <td>TOTAL PENDAPATAN</td>
@@ -148,10 +154,24 @@
             <tr>
                 <td colspan="2" class="section-title">POTONGAN</td>
             </tr>
+            <?php if (($data['total_potongan_kasbon'] ?? 0) > 0): ?>
             <tr>
                 <td>Potongan Kasbon / Hutang</td>
                 <td class="text-right"><?= number_format((float)$data['total_potongan_kasbon'], 0, ',', '.') ?></td>
             </tr>
+            <?php endif; ?>
+            <?php if (($data['total_penarikan_gaji'] ?? 0) > 0): ?>
+            <tr>
+                <td>Penarikan Gaji Manual</td>
+                <td class="text-right"><?= number_format((float)$data['total_penarikan_gaji'], 0, ',', '.') ?></td>
+            </tr>
+            <?php endif; ?>
+            <?php if (($data['potongan_tabungan'] ?? 0) > 0): ?>
+            <tr>
+                <td>Setor Tabungan</td>
+                <td class="text-right"><?= number_format((float)$data['potongan_tabungan'], 0, ',', '.') ?></td>
+            </tr>
+            <?php endif; ?>
             <?php if ($data['potongan_lain'] > 0): ?>
             <tr>
                 <td>Potongan Lain-lain <?= $data['catatan_potongan_lain'] ? '(' . htmlspecialchars($data['catatan_potongan_lain']) . ')' : '' ?></td>
@@ -160,7 +180,7 @@
             <?php endif; ?>
 
             <?php 
-                $totalPotongan = $data['total_potongan_kasbon'] + $data['potongan_lain'];
+                $totalPotongan = ($data['total_potongan_kasbon'] ?? 0) + ($data['total_penarikan_gaji'] ?? 0) + ($data['potongan_tabungan'] ?? 0) + ($data['potongan_lain'] ?? 0);
             ?>
             <tr style="font-weight:bold; background-color:#fafafa;">
                 <td>TOTAL POTONGAN</td>

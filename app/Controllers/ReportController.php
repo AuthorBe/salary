@@ -19,7 +19,7 @@ class ReportController
                 DATE_FORMAT(pr.periode_akhir, '%Y-%m') as bulan,
                 COUNT(DISTINCT pi.id_karyawan) as total_karyawan,
                 SUM(pi.gaji_bersih) as total_pengeluaran,
-                SUM(pi.total_potongan_kasbon + pi.potongan_lain + COALESCE(pi.total_penarikan_gaji, 0)) as total_potongan
+                SUM(pi.total_potongan_kasbon + pi.potongan_lain + COALESCE(pi.total_penarikan_gaji, 0) + COALESCE(pi.potongan_tabungan, 0)) as total_potongan
             FROM penggajian pr
             JOIN rincian_penggajian pi ON pr.id = pi.id_penggajian
             WHERE pr.status = 'approved'
@@ -86,9 +86,11 @@ class ReportController
                 SUM(pi.tunjangan_bulanan) as tunjangan_bulanan,
                 SUM(pi.tunjangan_lain) as tunjangan_lain,
                 SUM(pi.nominal_pembulatan) as nominal_pembulatan,
+                SUM(pi.penarikan_tabungan) as penarikan_tabungan,
                 SUM(pi.total_potongan_kasbon) as total_potongan_kasbon,
                 SUM(pi.total_penarikan_gaji) as total_penarikan_gaji,
                 SUM(pi.potongan_lain) as potongan_lain,
+                SUM(pi.potongan_tabungan) as potongan_tabungan,
                 SUM(pi.gaji_bersih) as gaji_bersih
             FROM rincian_penggajian pi
             JOIN penggajian pr ON pi.id_penggajian = pr.id

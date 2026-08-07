@@ -161,8 +161,13 @@ class DebtController
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
             $debtModel = new Debt();
-            $debtModel->delete($id);
-            $_SESSION['flash_success'] = 'Data kasbon berhasil dihapus!';
+            $debt = $debtModel->findById($id);
+            if ($debt && (float)$debt['terbayar'] > 0) {
+                $_SESSION['flash_error'] = 'Gagal dihapus: Kasbon ini sudah memiliki riwayat cicilan/potongan! Hapus terlebih dahulu cicilannya jika benar-benar ingin menghapus kasbon ini.';
+            } else {
+                $debtModel->delete($id);
+                $_SESSION['flash_success'] = 'Data kasbon berhasil dihapus!';
+            }
         }
 
         redirect('/debts');
