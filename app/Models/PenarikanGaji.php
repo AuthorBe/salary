@@ -36,6 +36,16 @@ class PenarikanGaji
             }
         }
 
+        if (!empty($filters['start_date'])) {
+            $sql .= " AND p.tanggal >= ?";
+            $params[] = $filters['start_date'];
+        }
+
+        if (!empty($filters['end_date'])) {
+            $sql .= " AND p.tanggal <= ?";
+            $params[] = $filters['end_date'];
+        }
+
         $sql .= " ORDER BY p.tanggal DESC, p.id DESC";
 
         $stmt = $db->prepare($sql);
@@ -67,7 +77,14 @@ class PenarikanGaji
         $emp = $stmtEmp->fetch();
 
         if (!$emp) {
-            return ['limit' => 0, 'details' => []]; // Karyawan tidak valid atau bukan bulanan
+            return [
+                'limit' => 0,
+                'gaji_pokok' => 0,
+                'tunjangan' => 0,
+                'total_uang_kehadiran' => 0,
+                'total_pemasukan' => 0,
+                'sudah_ditarik' => 0
+            ];
         }
 
         $gajiPokok = (float)$emp['gaji_pokok'];

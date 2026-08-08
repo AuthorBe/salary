@@ -200,6 +200,7 @@ $routes = [
     'GET /payroll/penarikan'            => [\App\Controllers\PenarikanGajiController::class, 'index'],
     'POST /payroll/penarikan/store'     => [\App\Controllers\PenarikanGajiController::class, 'store'],
     'POST /payroll/penarikan/destroy'   => [\App\Controllers\PenarikanGajiController::class, 'destroy'],
+    'GET /payroll/penarikan/export'     => [\App\Controllers\PenarikanGajiController::class, 'exportPdf'],
     'GET /payroll/export'               => [\App\Controllers\PayrollController::class, 'exportPdf'],
 
     // ── Phase 5: Riwayat, Laporan & Slip Gaji ───────────────────────────────

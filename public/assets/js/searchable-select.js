@@ -348,7 +348,8 @@
         });
         cleanupObserver.observe(document.body, { childList: true, subtree: true });
 
-        renderList('');
+        // [Fix #6] Lazy Rendering: renderList('') tidak lagi dipanggil di sini.
+        // Opsi-opsi baru akan dirender ke dalam DOM (listEl) saat openDropdown() dipanggil.
     }
 
     /**

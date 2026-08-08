@@ -16,9 +16,17 @@ class PenarikanGajiController
         $empModel = new Employee();
 
         $statusFilter = $_GET['status'] ?? '';
+        $startDate = $_GET['start_date'] ?? '';
+        $endDate = $_GET['end_date'] ?? '';
         $filters = [];
         if ($statusFilter) {
             $filters['status'] = $statusFilter;
+        }
+        if ($startDate) {
+            $filters['start_date'] = $startDate;
+        }
+        if ($endDate) {
+            $filters['end_date'] = $endDate;
         }
 
         $penarikan = $model->getAll($filters);
@@ -35,7 +43,9 @@ class PenarikanGajiController
             'pageKey' => 'penarikan_gaji',
             'penarikan' => $penarikan,
             'karyawan' => $karyawanBulanan,
-            'statusFilter' => $statusFilter
+            'statusFilter' => $statusFilter,
+            'startDate' => $startDate,
+            'endDate' => $endDate
         ]);
     }
 
@@ -106,5 +116,53 @@ class PenarikanGajiController
         }
 
         redirect('/payroll/penarikan');
+    }
+
+    public function exportPdf(): void
+    {
+        checkPermission('payroll');
+
+        $model = new PenarikanGaji();
+
+        $statusFilter = $_GET['status'] ?? '';
+        $startDate = $_GET['start_date'] ?? '';
+        $endDate = $_GET['end_date'] ?? '';
+        
+        $filters = [];
+        if ($statusFilter) {
+            $filters['status'] = $statusFilter;
+        }
+        if ($startDate) {
+            $filters['start_date'] = $startDate;
+        }
+        if ($endDate) {
+            $filters['end_date'] = $endDate;
+        }
+
+        $penarikan = $model->getAll($filters);
+
+        ob_start();
+        include APP_ROOT . '/app/Views/payroll/penarikan_pdf.php';
+        $html = ob_get_clean();
+
+        $filename = 'Laporan_Penarikan_Gaji';
+        if ($startDate && $endDate) {
+            $filename .= '_' . $startDate . '_sd_' . $endDate;
+        } elseif ($startDate) {
+            $filename .= '_Dari_' . $startDate;
+        } elseif ($endDate) {
+            $filename .= '_Sampai_' . $endDate;
+        }
+        
+        if ($statusFilter) {
+            $statusText = $statusFilter === 'pending' ? 'Belum_Payroll' : 'Sudah_Payroll';
+            $filename .= '_' . $statusText;
+        }
+        
+        if (!$startDate && !$endDate && !$statusFilter) {
+            $filename .= '_Semua_' . date('Ymd');
+        }
+
+        streamPdf($html, $filename, 'A4', 'portrait');
     }
 }
