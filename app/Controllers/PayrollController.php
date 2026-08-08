@@ -102,6 +102,8 @@ class PayrollController
             }
         }
 
+        $preventedDoublePayoutCount = 0;
+
         if (!$period_start || !$period_end || $period_start > $period_end) {
             $_SESSION['flash_error'] = 'Rentang tanggal tidak valid.';
             redirect('/payroll/create');
@@ -216,7 +218,30 @@ class PayrollController
                 if ($type === 'monthly' && $emp['tipe_gaji'] === 'bulanan') {
                     $monthlyAllowance = (float)$emp['tunjangan_bulanan'];
                 } elseif ($type === 'weekly' && $isLastWeekOfMonth) {
-                    $monthlyAllowance = (float)$emp['tunjangan_bulanan'];
+                    // Cek apakah karyawan ini sudah menerima tunjangan bulanan di slip mingguan manapun pada bulan ini
+                    $currentMonth = date('m', strtotime($period_end));
+                    $currentYear = date('Y', strtotime($period_end));
+                    
+                    $stmtCheck = $db->prepare("
+                        SELECT 1 
+                        FROM rincian_penggajian rp
+                        JOIN penggajian p ON rp.id_penggajian = p.id
+                        WHERE rp.id_karyawan = ? 
+                          AND p.type = 'weekly'
+                          AND MONTH(p.periode_akhir) = ?
+                          AND YEAR(p.periode_akhir) = ?
+                          AND rp.tunjangan_bulanan > 0
+                    ");
+                    $stmtCheck->execute([$emp['id'], $currentMonth, $currentYear]);
+                    $alreadyGotAllowance = $stmtCheck->fetchColumn();
+                    
+                    if (!$alreadyGotAllowance) {
+                        $monthlyAllowance = (float)$emp['tunjangan_bulanan'];
+                    } else {
+                        if ((float)$emp['tunjangan_bulanan'] > 0) {
+                            $preventedDoublePayoutCount++;
+                        }
+                    }
                 }
 
                 // Calculate Penarikan Gaji (Done before Kasbon so we know available net)
@@ -329,7 +354,11 @@ class PayrollController
             $lockPenarikan->execute([$runId, $period_end, $runId]);
 
             $db->commit();
-            $_SESSION['flash_success'] = 'Draft Payroll berhasil dibuat. Silakan periksa rincian sebelum menyetujui.';
+            $successMsg = 'Draft Payroll berhasil dibuat. Silakan periksa rincian sebelum menyetujui.';
+            if ($preventedDoublePayoutCount > 0) {
+                $successMsg .= "<br><br><small><i class=\'bi bi-info-circle\'></i> <strong>Info:</strong> Tunjangan bulanan untuk <strong>$preventedDoublePayoutCount karyawan mingguan</strong> di-nol-kan secara otomatis oleh sistem karena terdeteksi sudah pernah diberikan pada slip sebelumnya di bulan yang sama.</small>";
+            }
+            $_SESSION['flash_success'] = $successMsg;
             redirect('/payroll/preview?id=' . $runId);
 
         } catch (\Exception $e) {
