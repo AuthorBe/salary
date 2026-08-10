@@ -81,6 +81,7 @@
 </head>
 <body>
 
+<div style="padding: 20px;">
     <div class="header">
         <h1>REKAPITULASI PEMBAYARAN GAJI</h1>
         <p>Sistem Penggajian - Laporan Keuangan</p>
@@ -89,15 +90,26 @@
     <table class="info-table">
         <tr>
             <td class="info-label" width="15%">Nama Payroll</td>
-            <td width="35%">: <strong><?= htmlspecialchars($run['name'] ?? 'Run #' . $run['id']) ?></strong></td>
+            <td width="35%">: <strong><?= htmlspecialchars($run['name'] ?? 'Run #' . $run['id']) ?></strong> (ID: #<?= $run['id'] ?>)</td>
             <td class="info-label" width="15%">Periode</td>
-            <td width="35%">: <?= date('d F Y', strtotime($run['periode_awal'])) ?> s/d <?= date('d F Y', strtotime($run['periode_akhir'])) ?></td>
+            <td width="35%">
+                <?php if ($run['type'] === 'mixed'): 
+                    $opts = json_decode($run['options_json'] ?? '[]', true) ?: [];
+                    $bStart = isset($opts['borongan']['start']) ? date('d M Y', strtotime($opts['borongan']['start'])) : '-';
+                    $bEnd = isset($opts['borongan']['end']) ? date('d M Y', strtotime($opts['borongan']['end'])) : '-';
+                    $buStart = isset($opts['bulanan']['start']) ? date('d M Y', strtotime($opts['bulanan']['start'])) : '-';
+                    $buEnd = isset($opts['bulanan']['end']) ? date('d M Y', strtotime($opts['bulanan']['end'])) : '-';
+                ?>
+                    : Borongan (<?= $bStart ?> - <?= $bEnd ?>)<br>
+                    &nbsp;&nbsp;Bulanan (<?= $buStart ?> - <?= $buEnd ?>)
+                <?php else: ?>
+                    : <?= date('d F Y', strtotime($run['periode_awal'])) ?> s/d <?= date('d F Y', strtotime($run['periode_akhir'])) ?>
+                <?php endif; ?>
+            </td>
         </tr>
         <tr>
-            <td class="info-label">ID Payroll Run</td>
-            <td>: #<?= $run['id'] ?></td>
             <td class="info-label">Tipe Karyawan</td>
-            <td>: <?= ucfirst($run['type']) ?></td>
+            <td>: <?= $run['type'] === 'mixed' ? 'Gabungan (Borongan & Bulanan)' : ucfirst($run['type']) ?></td>
             <td class="info-label">Tgl Disetujui</td>
             <td>: <?= $run['disetujui_pada'] ? date('d F Y H:i', strtotime($run['disetujui_pada'])) : '-' ?></td>
         </tr>
@@ -214,5 +226,6 @@
         </div>
     </div>
 
+</div>
 </body>
 </html>

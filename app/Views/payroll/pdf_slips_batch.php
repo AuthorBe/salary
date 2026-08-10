@@ -62,7 +62,7 @@
 <body>
 
 <?php 
-$isWeekly = ($run['type'] === 'weekly');
+$options = json_decode($run['options_json'] ?? '[]', true);
 $perPage = 4; // Maksimal 4 slip (2 baris) per halaman untuk semua tipe gaji
 $totalItems = count($items);
 ?>
@@ -72,11 +72,21 @@ $totalItems = count($items);
 <?php 
 foreach ($items as $index => $row): 
     $count = $index + 1;
+    
+    $slipStart = $run['periode_awal'];
+    $slipEnd = $run['periode_akhir'];
+    if ($row['tipe_gaji'] === 'borongan' && isset($options['borongan'])) {
+        $slipStart = $options['borongan']['start'];
+        $slipEnd = $options['borongan']['end'];
+    } elseif ($row['tipe_gaji'] === 'bulanan' && isset($options['bulanan'])) {
+        $slipStart = $options['bulanan']['start'];
+        $slipEnd = $options['bulanan']['end'];
+    }
 ?>
         <td class="grid-cell">
             <div class="slip-header">
                 <h2>SLIP GAJI KARYAWAN</h2>
-                <p>Periode: <?= date('d M Y', strtotime($run['periode_awal'])) ?> - <?= date('d M Y', strtotime($run['periode_akhir'])) ?></p>
+                <p>Periode: <?= date('d M Y', strtotime($slipStart)) ?> - <?= date('d M Y', strtotime($slipEnd)) ?></p>
             </div>
 
             <table class="emp-info">

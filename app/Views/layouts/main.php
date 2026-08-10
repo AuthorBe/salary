@@ -189,6 +189,18 @@
         <?php endif; ?>
 
     </nav>
+    <script>
+        (function(){
+            var nav = document.querySelector('.sidebar-nav');
+            if (nav) {
+                var saved = sessionStorage.getItem('sidebarScrollTop');
+                if (saved !== null) nav.scrollTop = parseInt(saved, 10);
+                window.addEventListener('beforeunload', function() {
+                    sessionStorage.setItem('sidebarScrollTop', nav.scrollTop);
+                });
+            }
+        })();
+    </script>
 
     <!-- User Info + Logout -->
     <div class="sidebar-footer">

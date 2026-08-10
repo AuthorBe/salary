@@ -91,7 +91,7 @@
                         $exportUrl .= '?' . http_build_query($queryParams);
                     }
                 ?>
-                <a href="<?= $exportUrl ?>" class="btn btn-sm btn-danger rounded-pill px-4 shadow-sm" target="_blank">
+                <a href="<?= $exportUrl ?>" class="btn btn-sm btn-danger rounded-pill px-4 shadow-sm">
                     <i class="bi bi-file-earmark-pdf-fill me-1"></i> Export PDF
                 </a>
             </div>

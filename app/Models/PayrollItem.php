@@ -14,7 +14,7 @@ class PayrollItem
             FROM rincian_penggajian pi
             JOIN karyawan e ON pi.id_karyawan = e.id
             WHERE pi.id_penggajian = ?
-            ORDER BY e.name ASC
+            ORDER BY e.tipe_gaji ASC, e.name ASC
         ");
         $stmt->execute([$runId]);
         return $stmt->fetchAll();

@@ -98,8 +98,10 @@
                                 <td>
                                     <?php if ($pr['type'] === 'weekly'): ?>
                                         <span class="badge bg-info-subtle text-info border border-info-subtle px-3 py-1 rounded-pill">Mingguan</span>
-                                    <?php else: ?>
+                                    <?php elseif ($pr['type'] === 'monthly'): ?>
                                         <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill">Bulanan</span>
+                                    <?php else: ?>
+                                        <span class="badge bg-purple-subtle text-purple border border-purple-subtle px-3 py-1 rounded-pill" style="color: #6f42c1; background-color: #e2d9f3; border-color: #d6c8ef;">Gabungan</span>
                                     <?php endif; ?>
                                 </td>
                                 <td class="text-muted"><?= formatTanggal(substr($pr['created_at'], 0, 10)) ?></td>

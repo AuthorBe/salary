@@ -39,31 +39,50 @@
             <?= csrfField() ?>
 
             <div class="row g-4 mb-4">
-                <div class="col-md-6">
-                    <label for="type" class="form-label fw-semibold">Tipe Penggajian <span class="text-danger">*</span></label>
-                    <select class="form-select form-select-lg" id="type" name="type" onchange="toggleMonthlyOption()" required>
-                        <option value="weekly" <?= $type === 'weekly' ? 'selected' : '' ?>>Mingguan (Karyawan Borongan)</option>
-                        <option value="monthly" <?= $type === 'monthly' ? 'selected' : '' ?>>Bulanan (Karyawan Bulanan)</option>
-                    </select>
-                    <div class="form-text text-muted mt-2">
-                        Pilih <strong>Mingguan</strong> untuk menghitung gaji borongan &amp; uang hadir, atau <strong>Bulanan</strong> untuk gaji tetap.
+                <div class="col-md-12">
+                    <label class="form-label fw-semibold">Tipe Penggajian & Rentang Tanggal <span class="text-danger">*</span></label>
+                    <div class="form-text text-muted mb-3">
+                        Pilih tipe karyawan yang ingin dihitung. Anda dapat menggabungkan Borongan dan Bulanan sekaligus dengan rentang tanggal yang berbeda-beda.
                     </div>
-                </div>
 
-                <div class="col-md-6">
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <label for="periode_awal" class="form-label fw-semibold">Dari Tanggal <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control form-control-lg" id="periode_awal" name="periode_awal" value="<?= e($periode_awal ?? '') ?>" required>
-                        </div>
-                        <div class="col-6">
-                            <label for="periode_akhir" class="form-label fw-semibold">Sampai Tanggal <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control form-control-lg" id="periode_akhir" name="periode_akhir" value="<?= e($periode_akhir ?? '') ?>" required>
+                    <div class="card border mb-3">
+                        <div class="card-body">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="check_borongan" name="types[]" value="weekly" <?= $type === 'weekly' ? 'checked' : '' ?> onchange="toggleDateInputs('borongan', this.checked)">
+                                <label class="form-check-label fw-bold text-dark" for="check_borongan">Karyawan Borongan</label>
+                            </div>
+                            <div class="row g-3" id="date_inputs_borongan" style="<?= $type === 'weekly' ? '' : 'display: none;' ?>">
+                                <div class="col-6">
+                                    <label class="form-label small fw-medium">Dari Tanggal (Borongan)</label>
+                                    <input type="date" class="form-control" name="periode_awal_weekly" id="periode_awal_weekly" value="<?= e($default_weekly_start) ?>">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-medium">Sampai Tanggal (Borongan)</label>
+                                    <input type="date" class="form-control" name="periode_akhir_weekly" id="periode_akhir_weekly" value="<?= e($default_weekly_end) ?>">
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div class="form-text text-muted mt-2">
-                        Rentang tanggal absensi dan hasil produksi yang akan ditarik ke dalam perhitungan.
+
+                    <div class="card border">
+                        <div class="card-body">
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" role="switch" id="check_bulanan" name="types[]" value="monthly" <?= $type === 'monthly' ? 'checked' : '' ?> onchange="toggleDateInputs('bulanan', this.checked)">
+                                <label class="form-check-label fw-bold text-dark" for="check_bulanan">Karyawan Bulanan</label>
+                            </div>
+                            <div class="row g-3" id="date_inputs_bulanan" style="<?= $type === 'monthly' ? '' : 'display: none;' ?>">
+                                <div class="col-6">
+                                    <label class="form-label small fw-medium">Dari Tanggal (Bulanan)</label>
+                                    <input type="date" class="form-control" name="periode_awal_monthly" id="periode_awal_monthly" value="<?= e($default_monthly_start) ?>">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small fw-medium">Sampai Tanggal (Bulanan)</label>
+                                    <input type="date" class="form-control" name="periode_akhir_monthly" id="periode_akhir_monthly" value="<?= e($default_monthly_end) ?>">
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                 </div>
             </div>
 
@@ -71,7 +90,7 @@
             
             <div class="d-flex justify-content-end gap-2">
                 <a href="<?= url('/payroll') ?>" class="btn btn-light border px-4">Batal</a>
-                <button type="submit" class="btn btn-primary px-4 d-inline-flex align-items-center">
+                <button type="submit" class="btn btn-primary px-4 d-inline-flex align-items-center" onclick="return validateCheckboxes()">
                     <i class="bi bi-calculator me-2"></i> Kalkulasi &amp; Generate Draft
                 </button>
             </div>
@@ -80,30 +99,28 @@
 </div>
 
 <script>
-// Data default yang di-generate dari Controller
-const defaultDates = {
-    weekly: {
-        start: '<?= $default_weekly_start ?>',
-        end: '<?= $default_weekly_end ?>'
-    },
-    monthly: {
-        start: '<?= $default_monthly_start ?>',
-        end: '<?= $default_monthly_end ?>'
-    }
-};
-
-function toggleMonthlyOption() {
-    const select = document.getElementById('type');
-    const startInput = document.getElementById('periode_awal');
-    const endInput = document.getElementById('periode_akhir');
-    
-    // Otomatis ubah tanggal sesuai tipe
-    if (select.value === 'weekly') {
-        startInput.value = defaultDates.weekly.start;
-        endInput.value = defaultDates.weekly.end;
+function toggleDateInputs(type, isChecked) {
+    const container = document.getElementById('date_inputs_' + type);
+    if (isChecked) {
+        container.style.display = 'flex';
     } else {
-        startInput.value = defaultDates.monthly.start;
-        endInput.value = defaultDates.monthly.end;
+        container.style.display = 'none';
     }
+}
+
+function validateCheckboxes() {
+    const checkBorongan = document.getElementById('check_borongan').checked;
+    const checkBulanan = document.getElementById('check_bulanan').checked;
+    
+    if (!checkBorongan && !checkBulanan) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Pilih Tipe Penggajian',
+            text: 'Harap centang minimal satu tipe karyawan (Borongan atau Bulanan) yang ingin dihitung.',
+            confirmButtonColor: '#0078d4'
+        });
+        return false;
+    }
+    return true;
 }
 </script>

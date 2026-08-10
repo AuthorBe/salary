@@ -43,12 +43,12 @@ foreach ($includedItems as $it) {
     <div class="w-100 flex-grow-1">
         <h5 class="page-header-title text-dark fw-bold mb-2" style="font-size: 1.15rem;">
             <i class="bi bi-file-earmark-text text-primary me-1"></i> 
-            Preview Payroll <?= $run['type'] === 'weekly' ? 'Mingguan' : 'Bulanan' ?>
+            Preview Payroll <?= $run['type'] === 'weekly' ? 'Mingguan' : ($run['type'] === 'monthly' ? 'Bulanan' : 'Gabungan') ?>
         </h5>
         <div class="text-muted small d-flex flex-column flex-sm-row gap-1 gap-sm-2 align-items-start align-items-sm-center">
             <span><i class="bi bi-calendar-event me-1"></i> <?= formatTanggal($run['periode_awal']) ?> - <?= formatTanggal($run['periode_akhir']) ?></span>
             <span class="d-none d-sm-inline text-muted">|</span>
-            <span class="badge bg-light text-dark border fw-normal"><i class="bi bi-tag me-1"></i> Tipe: <?= $run['type'] === 'weekly' ? 'Mingguan' : 'Bulanan' ?></span>
+            <span class="badge bg-light text-dark border fw-normal"><i class="bi bi-tag me-1"></i> Tipe: <?= $run['type'] === 'weekly' ? 'Mingguan' : ($run['type'] === 'monthly' ? 'Bulanan' : 'Gabungan') ?></span>
         </div>
 
         <?php if (isset($_SESSION['flash_success'])): ?>
@@ -80,23 +80,9 @@ foreach ($includedItems as $it) {
                 </button>
             </form>
         <?php else: ?>
-            <div class="dropdown flex-sm-grow-0 flex-grow-1">
-                <button class="btn btn-danger rounded-pill px-3 shadow-sm w-100 dropdown-toggle" type="button" id="downloadDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-download me-1"></i> Download PDF
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="downloadDropdown">
-                    <li>
-                        <a class="dropdown-item" href="<?= url('/payroll/export?id=' . $run['id']) ?>" target="_blank">
-                            <i class="bi bi-file-earmark-pdf me-2 text-danger"></i> Laporan Rekap Gaji
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="<?= url('/payroll/export-slips?run_id=' . $run['id']) ?>" target="_blank">
-                            <i class="bi bi-printer me-2 text-info"></i> Cetak Semua Slip (Batch)
-                        </a>
-                    </li>
-                </ul>
-            </div>
+            <a href="<?= url('/payroll/export-combined?id=' . $run['id']) ?>" class="btn btn-danger rounded-pill px-4 shadow-sm flex-sm-grow-0 flex-grow-1">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Cetak Laporan (Rekap & Slip)
+            </a>
         <?php endif; ?>
         
         <?php if ($isDraft): ?>
@@ -113,11 +99,11 @@ foreach ($includedItems as $it) {
                 $now = time();
                 if (($now - $approvedTime) <= 86400): // Within 24 hours
             ?>
-                <form action="<?= url('/payroll/regenerate') ?>" method="POST" class="flex-sm-grow-0 flex-grow-1 m-0">
+                <form action="<?= url('/payroll/cancelApprove') ?>" method="POST" class="flex-sm-grow-0 flex-grow-1 m-0">
                     <?= csrfField() ?>
                     <input type="hidden" name="id" value="<?= $run['id'] ?>">
-                    <button type="submit" class="btn btn-outline-danger rounded-pill px-3 shadow-sm w-100" data-confirm="BAHAYA: Anda akan membatalkan status Approve, melepaskan kunci data absensi/produksi, dan mengembalikan saldo hutang karyawan. Lanjutkan?" title="Batal & Generate Ulang (Tersedia dalam 24 jam setelah approve)">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Batal & Ulang
+                    <button type="submit" class="btn btn-outline-danger rounded-pill px-3 shadow-sm w-100" data-confirm="BAHAYA: Anda akan membatalkan status Approve, melepaskan kunci data absensi/produksi, mengembalikan saldo hutang karyawan, dan membatalkan mutasi tabungan otomatis. Lanjutkan?" title="Batalkan Approve (Tersedia dalam 24 jam setelah approve)">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Batalkan Approve
                     </button>
                 </form>
             <?php endif; ?>
@@ -169,9 +155,22 @@ foreach ($includedItems as $it) {
                     </tr>
                 </thead>
                 <tbody>
-                    <?php $no = 1; foreach ($includedItems as $it): 
-                        $pendapatanAwal = $it['gaji_pokok'] + $it['total_uang_kehadiran'] + $it['total_upah_produksi'] + ($it['total_upah_lembur'] ?? 0) + $it['tunjangan_bulanan'];
-                        $penyesuaian = $it['tunjangan_lain'] + $it['nominal_pembulatan'] + ($it['penarikan_tabungan'] ?? 0) - $it['potongan_lain'];
+                    <?php 
+                        $no = 1; 
+                        $currentTipe = '';
+                        foreach ($includedItems as $it): 
+                            if ($currentTipe !== $it['tipe_gaji']):
+                                $currentTipe = $it['tipe_gaji'];
+                    ?>
+                        <tr>
+                            <td colspan="<?= $isDraft ? 6 : 5 ?>" class="bg-light fw-bold text-uppercase text-secondary py-2 border-bottom border-top shadow-sm" style="font-size: 0.75rem; letter-spacing: 1.5px;">
+                                <i class="bi bi-people-fill me-2 text-primary"></i> Grup Karyawan <?= $currentTipe ?>
+                            </td>
+                        </tr>
+                    <?php 
+                            endif;
+                            $pendapatanAwal = $it['gaji_pokok'] + $it['total_uang_kehadiran'] + $it['total_upah_produksi'] + ($it['total_upah_lembur'] ?? 0) + $it['tunjangan_bulanan'];
+                            $penyesuaian = $it['tunjangan_lain'] + $it['nominal_pembulatan'] + ($it['penarikan_tabungan'] ?? 0) - $it['potongan_lain'];
                     ?>
                         <tr>
                             <td class="ps-3 fw-semibold text-muted"><?= $no++ ?></td>

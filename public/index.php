@@ -195,6 +195,7 @@ $routes = [
     'POST /payroll/approve'             => [\App\Controllers\PayrollController::class, 'approve'],
     'POST /payroll/delete'              => [\App\Controllers\PayrollController::class, 'delete'],
     'POST /payroll/regenerate'          => [\App\Controllers\PayrollController::class, 'regenerate'],
+    'POST /payroll/cancelApprove'       => [\App\Controllers\PayrollController::class, 'cancelApprove'],
 
     // Penarikan Gaji
     'GET /payroll/penarikan'            => [\App\Controllers\PenarikanGajiController::class, 'index'],
@@ -208,6 +209,7 @@ $routes = [
     'GET /history'          => [\App\Controllers\HistoryController::class, 'index'],
     'GET /history/slip'         => [\App\Controllers\HistoryController::class, 'downloadSlip'],
     'GET /payroll/export-slips'        => [\App\Controllers\PayrollController::class, 'exportSlipsMass'],
+    'GET /payroll/export-combined'     => [\App\Controllers\PayrollController::class, 'exportCombinedPdf'],
 
     // ── Phase 5: Laporan & Rekapitulasi ───────────────────────────────────────
     // Laporan Finansial Owner
