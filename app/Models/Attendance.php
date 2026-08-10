@@ -21,7 +21,7 @@ class Attendance
     public function getByDate(string $date): array
     {
         $stmt = $this->db->prepare("
-            SELECT id_karyawan, hadir, telat, catatan, lembur_nominal
+            SELECT id_karyawan, hadir, telat, ambil_uang, catatan, lembur_nominal
             FROM absensi
             WHERE date = ?
         ");
@@ -32,6 +32,7 @@ class Attendance
             $result[$row['id_karyawan']] = [
                 'hadir'          => (bool) $row['hadir'],
                 'telat'          => (bool) $row['telat'],
+                'ambil_uang'     => (bool) ($row['ambil_uang'] ?? false),
                 'catatan'        => $row['catatan'] ?? '',
                 'lembur_nominal' => (int) ($row['lembur_nominal'] ?? 0)
             ];
@@ -43,9 +44,12 @@ class Attendance
      * Simpan kehadiran (bulk) menggunakan INSERT ... ON DUPLICATE KEY UPDATE.
      * Karyawan tidak hadir yang keterangannya kosong akan otomatis diberi catatan 'Alfa'.
      */
-    public function saveBulk(string $date, array $employeeIds, array $presentIds, array $notesMap = [], array $telatIds = []): void
+    public function saveBulk(string $date, array $employeeIds, array $presentIds, array $notesMap = [], array $telatIds = [], array $ambilUangIds = []): void
     {
-        $this->db->beginTransaction();
+        $inTransaction = $this->db->inTransaction();
+        if (!$inTransaction) {
+            $this->db->beginTransaction();
+        }
         try {
             // PROTEKSI: Cek apakah data karyawan yang disubmit pada tanggal ini sudah dikunci (masuk payroll)
             if (count($employeeIds) > 0) {
@@ -58,19 +62,21 @@ class Attendance
                 }
             }
             $stmt = $this->db->prepare("
-                INSERT INTO absensi (id_karyawan, date, hadir, telat, catatan)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO absensi (id_karyawan, date, hadir, telat, ambil_uang, catatan)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE 
                     hadir = VALUES(hadir),
                     telat = VALUES(telat),
+                    ambil_uang = VALUES(ambil_uang),
                     catatan = VALUES(catatan)
             ");
             
             foreach ($employeeIds as $empId) {
                 $isPresent = in_array($empId, $presentIds) ? 1 : 0;
                 $rawNotes  = trim((string)($notesMap[$empId] ?? ''));
-                // Telat hanya valid jika karyawan hadir
+                // Telat dan Ambil Uang hanya valid jika karyawan hadir
                 $isTelat   = ($isPresent === 1 && in_array($empId, $telatIds)) ? 1 : 0;
+                $isAmbilUang = ($isPresent === 1 && in_array($empId, $ambilUangIds)) ? 1 : 0;
                 
                 if ($isPresent === 1) {
                     $notes = null; // Karyawan hadir
@@ -79,12 +85,16 @@ class Attendance
                     $notes = ($rawNotes === '') ? 'Alfa' : $rawNotes;
                 }
                 
-                $stmt->execute([$empId, $date, $isPresent, $isTelat, $notes]);
+                $stmt->execute([$empId, $date, $isPresent, $isTelat, $isAmbilUang, $notes]);
             }
             
-            $this->db->commit();
+            if (!$inTransaction) {
+                $this->db->commit();
+            }
         } catch (\Exception $e) {
-            $this->db->rollBack();
+            if (!$inTransaction) {
+                $this->db->rollBack();
+            }
             throw $e;
         }
     }

@@ -40,6 +40,9 @@
                             <tr>
                                 <th scope="col" class="ps-4 fw-semibold" style="width: 100px;">Hadir</th>
                                 <th scope="col" class="fw-semibold" style="width: 90px;">Telat</th>
+                                <?php if (($employee_type ?? 'bulanan') === 'bulanan'): ?>
+                                    <th scope="col" class="fw-semibold text-center" style="width: 100px;">Ambil Uang</th>
+                                <?php endif; ?>
                                 <th scope="col" class="fw-semibold">Nama Karyawan</th>
                                 <th scope="col" class="fw-semibold">Tipe Gaji</th>
                                 <th scope="col" class="pe-4 fw-semibold">Keterangan Tidak Hadir</th>
@@ -51,6 +54,7 @@
                                     $attData   = $attendances[$emp['id']] ?? null;
                                     $isPresent = $attData !== null ? (is_array($attData) ? (bool)$attData['hadir'] : (bool)$attData) : true;
                                     $isTelat   = $attData !== null && is_array($attData) ? (bool)($attData['telat'] ?? false) : false;
+                                    $ambilUang = $attData !== null && is_array($attData) ? (bool)($attData['ambil_uang'] ?? false) : false;
                                     $notes     = $attData !== null && is_array($attData) ? ($attData['catatan'] ?? '') : '';
                                 ?>
                                 <tr>
@@ -78,6 +82,22 @@
                                             </label>
                                         </div>
                                     </td>
+                                    <?php if (($employee_type ?? 'bulanan') === 'bulanan'): ?>
+                                        <td class="text-center">
+                                            <?php if (($emp['uang_kehadiran_harian'] ?? 1) > 0): ?>
+                                                <div class="form-check mb-0 d-flex justify-content-center">
+                                                    <input class="form-check-input ambil-uang-check shadow-sm" type="checkbox"
+                                                           name="ambil_uang[]" value="<?= $emp['id'] ?>"
+                                                           id="ambil_uang_<?= e($employee_type) ?>_<?= $emp['id'] ?>"
+                                                           <?= $ambilUang ? 'checked' : '' ?>
+                                                           <?= !$isPresent ? 'disabled' : '' ?>
+                                                           style="width: 1.4em; height: 1.4em; cursor: pointer; accent-color: #198754; border: 2px solid #ced4da;">
+                                                </div>
+                                            <?php else: ?>
+                                                <span class="text-muted small">-</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    <?php endif; ?>
                                     <td>
                                         <label class="form-check-label fw-medium w-100 mb-0 d-flex align-items-center" for="present_<?= e($employee_type) ?>_<?= $emp['id'] ?>" style="cursor: pointer;">
                                             <?= e($emp['name']) ?>
@@ -125,6 +145,7 @@
                     const empId = this.getAttribute('data-emp-id');
                     const notesInput = document.getElementById('notes_' + empId);
                     const telatCheck = document.getElementById('telat_' + empId);
+                    const ambilUangCheck = document.getElementById('ambil_uang_' + empId);
                     if (notesInput) {
                         if (this.checked) {
                             notesInput.disabled = true;
@@ -135,6 +156,11 @@
                                 telatCheck.disabled = false;
                                 telatCheck.style.opacity = '1';
                                 telatCheck.style.cursor = 'pointer';
+                            }
+                            if (ambilUangCheck) {
+                                ambilUangCheck.disabled = false;
+                                ambilUangCheck.style.opacity = '1';
+                                ambilUangCheck.style.cursor = 'pointer';
                             }
                         } else {
                             notesInput.disabled = false;
@@ -147,6 +173,12 @@
                                 telatCheck.disabled = true;
                                 telatCheck.style.opacity = '0.4';
                                 telatCheck.style.cursor = 'not-allowed';
+                            }
+                            if (ambilUangCheck) {
+                                ambilUangCheck.checked = false;
+                                ambilUangCheck.disabled = true;
+                                ambilUangCheck.style.opacity = '0.4';
+                                ambilUangCheck.style.cursor = 'not-allowed';
                             }
                         }
                     }

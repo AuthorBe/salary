@@ -128,6 +128,16 @@ class Employee
                 $db->prepare("DELETE FROM pengaturan_gaji_bulanan WHERE id_karyawan = ?")->execute([$id]);
             }
 
+            // SINKRONISASI EFEK DOMINO: Update nominal kasbon "Penarikan Harian" yang belum diproses payroll
+            $uangHadir = (float)($data['uang_kehadiran_harian'] ?? 0);
+            if (($data['tipe_gaji'] === 'bulanan') && $uangHadir > 0) {
+                // Update nominal yang berbeda menjadi mengikuti nominal terbaru
+                $db->prepare("UPDATE penarikan_gaji SET nominal = ? WHERE id_karyawan = ? AND keterangan = 'Penarikan Harian' AND id_penggajian IS NULL AND nominal != ?")->execute([$uangHadir, $id, $uangHadir]);
+            } else {
+                // Jika uang hadir dinolkan atau tipe gaji bukan bulanan, hapus semua kasbon harian yang belum diproses payroll
+                $db->prepare("DELETE FROM penarikan_gaji WHERE id_karyawan = ? AND keterangan = 'Penarikan Harian' AND id_penggajian IS NULL")->execute([$id]);
+            }
+
             $db->commit();
             return true;
         } catch (Exception $e) {

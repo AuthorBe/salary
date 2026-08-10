@@ -58,6 +58,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tutup sidebar saat overlay diklik
   sidebarOverlay?.addEventListener('click', closeSidebar);
 
+  // ── Restore & Save Sidebar Scroll Position ──────────────────────────────
+  const sidebarNav = document.querySelector('.sidebar-nav');
+  if (sidebarNav) {
+    const savedScroll = sessionStorage.getItem('sidebarScrollTop');
+    if (savedScroll !== null) {
+      sidebarNav.scrollTop = parseInt(savedScroll, 10);
+    }
+    window.addEventListener('beforeunload', () => {
+      sessionStorage.setItem('sidebarScrollTop', sidebarNav.scrollTop);
+    });
+  }
+
   // Tutup sidebar saat Escape ditekan
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSidebar();

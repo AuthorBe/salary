@@ -5,6 +5,7 @@ namespace App\Controllers;
 
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\PenarikanGaji;
 
 class AttendanceController
 {
@@ -67,6 +68,7 @@ class AttendanceController
         $presentIds = $_POST['hadir'] ?? []; // Array of employee_ids yang diceklis
         $notesMap   = $_POST['catatan'] ?? [];      // Array of catatan indexed by id_karyawan
         $telatIds   = $_POST['telat'] ?? [];        // Array of employee_ids yang telat
+        $ambilUangIds = $_POST['ambil_uang'] ?? []; // Array of employee_ids yang ambil uang
 
         if (!$date || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             if (isHtmx()) {
@@ -94,6 +96,7 @@ class AttendanceController
         $attModel = new Attendance();
         try {
             $db = getDB();
+            $db->beginTransaction();
             
             $isUpdate = false;
             if (count($employeeIds) > 0) {
@@ -104,16 +107,74 @@ class AttendanceController
                 $isUpdate = $checkUpdate->fetchColumn() > 0;
             }
 
-            $attModel->saveBulk($date, $employeeIds, $presentIds, $notesMap, $telatIds);
+            $attModel->saveBulk($date, $employeeIds, $presentIds, $notesMap, $telatIds, $ambilUangIds);
+            
+            // SINKRONISASI DENGAN PENARIKAN GAJI (KASBON HARIAN)
+            if ($type === 'bulanan') {
+                $penarikanModel = new PenarikanGaji();
+                $keterangan = 'Penarikan Harian';
+                
+                foreach ($employees as $emp) {
+                    $empId = (int)$emp['id'];
+                    $isPresent = in_array($empId, $presentIds);
+                    $isAmbilUang = $isPresent && in_array($empId, $ambilUangIds);
+                    
+                    if ($isAmbilUang) {
+                        $uangHadir = (float)($emp['uang_kehadiran_harian'] ?? 0);
+                        if ($uangHadir > 0) {
+                            $check = $db->prepare("SELECT id, nominal FROM penarikan_gaji WHERE id_karyawan = ? AND tanggal = ? AND keterangan = ? AND id_penggajian IS NULL");
+                            $check->execute([$empId, $date, $keterangan]);
+                            $existing = $check->fetch();
+                            
+                            if (!$existing) {
+                                $penarikanModel->store([
+                                    'id_karyawan' => $empId,
+                                    'tanggal' => $date,
+                                    'nominal' => $uangHadir,
+                                    'keterangan' => $keterangan
+                                ]);
+                            } else if ((float)$existing['nominal'] !== $uangHadir) {
+                                // Jika nominal di master data berubah, update nominal kasbonnya
+                                $db->prepare("UPDATE penarikan_gaji SET nominal = ? WHERE id = ?")->execute([$uangHadir, $existing['id']]);
+                            }
+                        } else {
+                            // Jika uang hadir di-nol-kan di master data tapi checkbox masih ada/tersubmit
+                            $stmtDel = $db->prepare("DELETE FROM penarikan_gaji WHERE id_karyawan = ? AND tanggal = ? AND keterangan = ? AND id_penggajian IS NULL");
+                            $stmtDel->execute([$empId, $date, $keterangan]);
+                        }
+                    } else {
+                        // Jika tidak ambil uang (atau tidak hadir), hapus jika ada dan belum di-payroll
+                        $stmtDel = $db->prepare("DELETE FROM penarikan_gaji WHERE id_karyawan = ? AND tanggal = ? AND keterangan = ? AND id_penggajian IS NULL");
+                        $stmtDel->execute([$empId, $date, $keterangan]);
+                    }
+                }
+            }
+            
+            $db->commit();
             
             $jmlHadir = count($presentIds);
             $jmlTidakHadir = count($employeeIds) - $jmlHadir;
             $jmlTelat = count(array_intersect($presentIds, $telatIds));
+            $jmlAmbilUang = count(array_intersect($presentIds, $ambilUangIds));
             
             $typeLabel = ($type === 'bulanan') ? 'Karyawan Bulanan' : 'Karyawan Borongan';
             $titleText = $isUpdate ? "Absensi $typeLabel Diperbarui!" : "Absensi $typeLabel Disimpan!";
             $descText = $isUpdate ? 'Data kehadiran <strong>' . $typeLabel . '</strong> tanggal <strong class="text-dark">%s</strong> telah berhasil diperbarui.' : 'Data kehadiran <strong>' . $typeLabel . '</strong> tanggal <strong class="text-dark">%s</strong> telah berhasil tersimpan.';
+            
             $sessionText = $isUpdate ? "Data kehadiran $typeLabel tanggal %s berhasil diperbarui." : "Data kehadiran $typeLabel tanggal %s berhasil disimpan.";
+            if ($type === 'bulanan') {
+                $sessionText .= ' (Hadir: ' . $jmlHadir . ', Telat: ' . $jmlTelat . ', Ambil Uang: ' . $jmlAmbilUang . ', Tidak Hadir: ' . $jmlTidakHadir . ')';
+            } else {
+                $sessionText .= ' (Hadir: ' . $jmlHadir . ', Telat: ' . $jmlTelat . ', Tidak Hadir: ' . $jmlTidakHadir . ')';
+            }
+            
+            // Build badges HTML
+            $badgesHtml = '<span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 fs-6 border border-success-subtle">' . $jmlHadir . ' Hadir</span>' .
+                          '<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3 py-2 fs-6 border border-warning-subtle">' . $jmlTelat . ' Telat</span>';
+            if ($type === 'bulanan') {
+                $badgesHtml .= '<span class="badge bg-info-subtle text-info-emphasis rounded-pill px-3 py-2 fs-6 border border-info-subtle">' . $jmlAmbilUang . ' Ambil Uang</span>';
+            }
+            $badgesHtml .= '<span class="badge bg-danger-subtle text-danger rounded-pill px-3 py-2 fs-6 border border-danger-subtle">' . $jmlTidakHadir . ' Tidak Hadir</span>';
             
             $msg = sprintf(
                 '<div class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="z-index: 1055; background: rgba(0,0,0,0.5);" id="attendance-success-overlay" onclick="this.remove()">' .
@@ -125,9 +186,7 @@ class AttendanceController
                             '<h4 class="fw-bold mb-2">%s</h4>' .
                             '<p class="text-muted mb-4">' . $descText . '</p>' .
                             '<div class="d-flex justify-content-center gap-2 mb-4 flex-wrap">' .
-                                '<span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 fs-6 border border-success-subtle">%d Hadir</span>' .
-                                '<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3 py-2 fs-6 border border-warning-subtle">%d Telat</span>' .
-                                '<span class="badge bg-danger-subtle text-danger rounded-pill px-3 py-2 fs-6 border border-danger-subtle">%d Tidak Hadir</span>' .
+                                $badgesHtml .
                             '</div>' .
                             '<button type="button" class="btn btn-primary px-5 rounded-pill shadow-sm" onclick="document.getElementById(\'attendance-success-overlay\').remove()">Oke, Tutup</button>' .
                         '</div>' .
@@ -135,10 +194,7 @@ class AttendanceController
                     '<style>@keyframes popIn { 0%% { opacity: 0; transform: scale(0.8); } 100%% { opacity: 1; transform: scale(1); } }</style>' .
                 '</div>',
                 $titleText,
-                e(formatTanggal($date)),
-                $jmlHadir,
-                $jmlTelat,
-                $jmlTidakHadir
+                e(formatTanggal($date))
             );
             
             if (isHtmx()) {
@@ -147,10 +203,13 @@ class AttendanceController
                 echo $msg;
             } else {
                 $_SESSION['flash_title'] = $titleText;
-                $_SESSION['flash_success'] = sprintf($sessionText, e(formatTanggal($date))) . ' (Hadir: ' . $jmlHadir . ', Telat: ' . $jmlTelat . ', Tidak Hadir: ' . $jmlTidakHadir . ')';
+                $_SESSION['flash_success'] = sprintf($sessionText, e(formatTanggal($date)));
                 redirect('/attendances?date=' . urlencode($date));
             }
         } catch (\Exception $e) {
+            if (isset($db) && $db->inTransaction()) {
+                $db->rollBack();
+            }
             $errMsg = sprintf(
                 '<div class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center" style="z-index: 1055; background: rgba(0,0,0,0.5);" id="attendance-error-overlay" onclick="this.remove()">' .
                     '<div class="card border-0 shadow-lg" style="max-width: 420px; width: 90%%; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);" onclick="event.stopPropagation()">' .
