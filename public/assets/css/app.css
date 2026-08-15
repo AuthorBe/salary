@@ -2042,3 +2042,177 @@ tbody tr:hover td { background: var(--bg-hover); }
     min-height: 52px;
     border-radius: 0.5rem;
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   MODAL STABILITY & COMPLETE BACKGROUND SCROLL FREEZE
+   ──────────────────────────────────────────────────────────────────── */
+html.modal-open,
+body.modal-open {
+    overflow: hidden !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    padding-right: 0 !important;
+    overscroll-behavior: contain !important;
+    touch-action: none;
+}
+
+body.modal-open .app-header {
+    padding-right: 1.5rem !important;
+    right: 0 !important;
+}
+
+body.modal-open .app-main,
+body.modal-open .sidebar {
+    pointer-events: none !important;
+    user-select: none !important;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   HIDE ALL DEFAULT SCROLLBARS ON ALL MODALS & POPUPS GLOBALLY
+   ──────────────────────────────────────────────────────────────────── */
+html.modal-open,
+body.modal-open,
+.modal,
+.modal *,
+.modal-dialog,
+.modal-content,
+.modal-body,
+.modal-dialog-scrollable,
+.modal-dialog-scrollable .modal-body,
+.swal2-container,
+.swal2-popup,
+.swal2-html-container,
+[class*="modal"] {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+html.modal-open::-webkit-scrollbar,
+body.modal-open::-webkit-scrollbar,
+.modal::-webkit-scrollbar,
+.modal *::-webkit-scrollbar,
+.modal-dialog::-webkit-scrollbar,
+.modal-content::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar,
+.modal-dialog-scrollable::-webkit-scrollbar,
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar,
+.swal2-container::-webkit-scrollbar,
+.swal2-popup::-webkit-scrollbar,
+.swal2-html-container::-webkit-scrollbar,
+[class*="modal"]::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+    -webkit-appearance: none !important;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1055;
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    outline: 0;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    pointer-events: auto !important;
+}
+
+.modal-dialog {
+    pointer-events: auto !important;
+}
+
+.modal-dialog-scrollable {
+    display: flex;
+    max-height: calc(100vh - 2rem);
+}
+
+.modal-dialog-scrollable .modal-content {
+    max-height: calc(100vh - 2rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+@media (min-width: 576px) {
+    .modal-dialog-scrollable {
+        max-height: calc(100vh - 3.5rem);
+    }
+    .modal-dialog-scrollable .modal-content {
+        max-height: calc(100vh - 3.5rem);
+    }
+}
+
+.modal-dialog-scrollable .modal-body {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain !important;
+}
+
+.modal-dialog-scrollable .modal-content > form,
+.modal-dialog-scrollable .modal-content > div,
+.modal-dialog-scrollable #modalDebtFormPlaceholder {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.modal-backdrop {
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    pointer-events: auto;
+}
+
+/* Responsive Modal Styling for Mobile */
+@media (max-width: 575.98px) {
+    .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+    }
+    .modal-dialog-centered {
+        min-height: calc(100% - 1rem);
+    }
+    .modal-content {
+        border-radius: 1rem !important;
+    }
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* Action Toolbar in Kasbon History Modal */
+    .debt-action-toolbar {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.5rem !important;
+        width: 100% !important;
+    }
+    
+    .debt-action-toolbar .debt-btn-pay {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        padding-top: 0.45rem !important;
+        padding-bottom: 0.45rem !important;
+    }
+    
+    .debt-action-toolbar .debt-btn-secondary {
+        width: 100% !important;
+        padding-top: 0.4rem !important;
+        padding-bottom: 0.4rem !important;
+        font-size: 0.8125rem !important;
+    }
+
+    .debt-action-toolbar .debt-btn-secondary:only-of-type {
+        grid-column: 1 / -1 !important;
+    }
+}
+

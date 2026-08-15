@@ -174,9 +174,12 @@ $routes = [
     // ── Phase 3: Kasbon & Hutang Karyawan ───────────────────────────────────
     'GET /debts'                        => [\App\Controllers\DebtController::class, 'index'],
     'GET /debts/form'                   => [\App\Controllers\DebtController::class, 'form'],
+    'GET /debts/history'                => [\App\Controllers\DebtController::class, 'getHistory'],
+    'GET /debts/active-list'            => [\App\Controllers\DebtController::class, 'getActiveList'],
     'POST /debts/store'                 => [\App\Controllers\DebtController::class, 'store'],
     'POST /debts/pay-manual'            => [\App\Controllers\DebtController::class, 'payManual'],
     'POST /debts/delete'                => [\App\Controllers\DebtController::class, 'destroy'],
+    'POST /debts/delete-deduction'      => [\App\Controllers\DebtController::class, 'deleteDeduction'],
 
     // Tabungan Karyawan
     'GET /savings'                      => [\App\Controllers\SavingController::class, 'index'],

@@ -19,7 +19,7 @@ class Debt
             SELECT d.*, e.name AS employee_name, e.tipe_gaji, e.aktif AS employee_active
             FROM kasbon d
             JOIN karyawan e ON d.id_karyawan = e.id
-            WHERE 1=1
+            WHERE d.status != 'cancelled'
         ";
         $params = [];
 
@@ -100,13 +100,36 @@ class Debt
     }
 
     /**
-     * Hapus/Batalkan kasbon.
+     * Hapus kasbon beserta seluruh potongan manual terkait secara aman.
      */
     public function delete(int $id): bool
     {
         $db = getDB();
-        $stmt = $db->prepare("DELETE FROM kasbon WHERE id = ?");
-        return $stmt->execute([$id]);
+        $inTransaction = false;
+        if (!$db->inTransaction()) {
+            $db->beginTransaction();
+            $inTransaction = true;
+        }
+
+        try {
+            $stmtD = $db->prepare("DELETE FROM potongan_kasbon WHERE id_kasbon = ?");
+            $stmtD->execute([$id]);
+
+            $stmt = $db->prepare("DELETE FROM kasbon WHERE id = ?");
+            $res = $stmt->execute([$id]);
+
+            if ($inTransaction) {
+                $db->commit();
+            }
+            return $res;
+        } catch (\Throwable $e) {
+            if ($inTransaction && $db->inTransaction()) {
+                try {
+                    $db->rollBack();
+                } catch (\Throwable $t) {}
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -130,12 +153,10 @@ class Debt
         $currentRemaining = (float) $debt['sisa_nominal'];
 
         // Capping: Jangan sampai nominal potongan melebihi sisa hutang yang ada.
-        // Jika melebihi, potong sejumlah sisa hutangnya saja untuk mencegah bug rollback.
         if ($amount > $currentRemaining) {
             $amount = $currentRemaining;
         }
 
-        // Jika tidak ada yang dipotong (misal sisa hutang sudah 0), abaikan agar tidak ada log 0 Rupiah
         if ($amount <= 0) {
             return true;
         }
@@ -147,7 +168,7 @@ class Debt
         }
 
         try {
-            // 1. Simpan riwayat di debt_deductions
+            // 1. Simpan riwayat di potongan_kasbon
             $stmtD = $db->prepare("
                 INSERT INTO potongan_kasbon (id_kasbon, id_rincian_penggajian, nominal, tanggal_potongan, type, catatan)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -170,7 +191,7 @@ class Debt
                 $newStatus = 'paid_off';
             }
 
-            // 3. Update master debts
+            // 3. Update master kasbon
             $stmtU = $db->prepare("
                 UPDATE kasbon
                 SET sisa_nominal = ?, status = ?
@@ -223,20 +244,130 @@ class Debt
     }
 
     /**
-     * Ringkasan statistik statistik kasbon (Total Aktif, Total Lunas, Karyawan Aktif Memiliki Kasbon).
+     * Ringkasan statistik kasbon (Total Aktif, Total Lunas, Karyawan Aktif Memiliki Kasbon).
      */
     public function getSummary(): array
     {
         $db = getDB();
 
-        $totalActive = (float) $db->query("SELECT SUM(sisa_nominal) FROM kasbon WHERE status = 'active'")->fetchColumn();
-        $totalPaid   = (float) $db->query("SELECT SUM(nominal) FROM potongan_kasbon")->fetchColumn();
-        $empCount    = (int) $db->query("SELECT COUNT(DISTINCT id_karyawan) FROM kasbon WHERE status = 'active'")->fetchColumn();
+        $totalActive = (float) $db->query("SELECT COALESCE(SUM(sisa_nominal), 0) FROM kasbon WHERE status = 'active'")->fetchColumn();
+        $totalPaid   = (float) $db->query("SELECT COALESCE(SUM(pk.nominal), 0) FROM potongan_kasbon pk JOIN kasbon k ON pk.id_kasbon = k.id WHERE k.status != 'cancelled'")->fetchColumn();
+        $empCount    = (int) $db->query("SELECT COUNT(DISTINCT id_karyawan) FROM kasbon WHERE status = 'active' AND sisa_nominal > 0")->fetchColumn();
 
         return [
             'total_active_remaining' => $totalActive,
             'total_paid_deductions'  => $totalPaid,
             'active_debtors_count'   => $empCount,
         ];
+    }
+
+    /**
+     * Ambil daftar seluruh karyawan aktif beserta total sisa kasbon & jumlah kasbon aktif.
+     */
+    public function getEmployeesSummary(): array
+    {
+        $db = getDB();
+        $sql = "
+            SELECT 
+                k.id,
+                k.name,
+                k.tipe_gaji,
+                COALESCE(SUM(CASE WHEN d.status = 'active' THEN d.sisa_nominal ELSE 0 END), 0) AS total_sisa,
+                COALESCE(SUM(CASE WHEN d.status != 'cancelled' THEN d.total_nominal ELSE 0 END), 0) AS total_pinjaman,
+                COUNT(CASE WHEN d.status = 'active' AND d.sisa_nominal > 0 THEN 1 ELSE NULL END) AS active_debts_count,
+                COUNT(CASE WHEN d.status != 'cancelled' AND d.id IS NOT NULL THEN 1 ELSE NULL END) AS total_debts_count
+            FROM karyawan k
+            LEFT JOIN kasbon d ON k.id = d.id_karyawan AND d.status != 'cancelled'
+            WHERE k.aktif = 1
+            GROUP BY k.id, k.name, k.tipe_gaji
+            ORDER BY k.name ASC
+        ";
+        $stmt = $db->query($sql);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Ambil seluruh kasbon milik 1 karyawan beserta riwayat potongannya.
+     */
+    public function getDebtsWithDeductionsByEmployee(int $employeeId): array
+    {
+        $db = getDB();
+        $stmt = $db->prepare("
+            SELECT d.*, 
+                COALESCE((SELECT SUM(nominal) FROM potongan_kasbon pk WHERE pk.id_kasbon = d.id), 0) AS total_terbayar
+            FROM kasbon d
+            WHERE d.id_karyawan = ? AND d.status != 'cancelled'
+            ORDER BY (CASE WHEN d.status = 'active' THEN 0 ELSE 1 END) ASC, d.id DESC
+        ");
+        $stmt->execute([$employeeId]);
+        $debts = $stmt->fetchAll();
+
+        foreach ($debts as &$debt) {
+            $debt['deductions'] = $this->getDeductionsByDebtId((int)$debt['id']);
+        }
+        unset($debt);
+
+        return $debts;
+    }
+
+    /**
+     * Hapus potongan/cicilan manual dan kembalikan sisa_nominal ke kasbon terkait.
+     */
+    public function deleteDeduction(int $deductionId): bool
+    {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT * FROM potongan_kasbon WHERE id = ?");
+        $stmt->execute([$deductionId]);
+        $deduction = $stmt->fetch();
+
+        if (!$deduction || $deduction['type'] !== 'manual') {
+            return false;
+        }
+
+        $debtId = (int)$deduction['id_kasbon'];
+        $amount = (float)$deduction['nominal'];
+
+        $inTransaction = false;
+        if (!$db->inTransaction()) {
+            $db->beginTransaction();
+            $inTransaction = true;
+        }
+
+        try {
+            // Hapus potongan
+            $stmtDel = $db->prepare("DELETE FROM potongan_kasbon WHERE id = ?");
+            $stmtDel->execute([$deductionId]);
+
+            // Ambil data kasbon terkini
+            $debt = $this->findById($debtId);
+            if ($debt) {
+                $newRemaining = (float)$debt['sisa_nominal'] + $amount;
+                $newStatus = $newRemaining > 0 ? 'active' : $debt['status'];
+                
+                // Pastikan tidak melebihi total nominal
+                if ($newRemaining > (float)$debt['total_nominal']) {
+                    $newRemaining = (float)$debt['total_nominal'];
+                }
+
+                $stmtU = $db->prepare("
+                    UPDATE kasbon
+                    SET sisa_nominal = ?, status = ?
+                    WHERE id = ?
+                ");
+                $stmtU->execute([$newRemaining, $newStatus, $debtId]);
+            }
+
+            if ($inTransaction) {
+                $db->commit();
+            }
+            return true;
+        } catch (\Throwable $e) {
+            if ($inTransaction && $db->inTransaction()) {
+                try {
+                    $db->rollBack();
+                } catch (\Throwable $t) {}
+            }
+            throw $e;
+        }
     }
 }

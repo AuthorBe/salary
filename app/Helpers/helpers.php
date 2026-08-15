@@ -164,25 +164,36 @@ function csrfField(): string
 
 
 /**
- * Validasi CSRF token dari form POST.
+ * Validasi CSRF token dari form POST atau Header AJAX.
  * Menggunakan hash_equals() untuk mencegah timing attack.
- * Token di-unset setelah validasi (one-time use).
  *
  * Dipanggil di Controller sebelum memproses data POST.
  */
 function validateCsrfToken(): void
 {
-    $submitted = $_POST['csrf_token'] ?? '';
+    $submitted = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     $stored    = $_SESSION['csrf_token'] ?? '';
 
-    if (!$stored || !hash_equals($stored, $submitted)) {
+    if (!$stored || !hash_equals($stored, (string) $submitted)) {
         unset($_SESSION['csrf_token']);
         http_response_code(419);
+
+        $isAjax = (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+               || (!empty($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success'    => false,
+                'message'    => 'Sesi Anda telah kedaluwarsa atau token keamanan tidak valid (CSRF). Silakan refresh halaman dan coba kembali.',
+                'csrf_error' => true
+            ]);
+            exit;
+        }
+
         view('errors/csrf', ['title' => 'Sesi Berakhir (CSRF Error)'], 'error');
         exit;
     }
-
-    // Token tidak di-regenerate setiap request supaya HTMX partial-updates tetap bisa bekerja dengan form yang sama.
 }
 
 // ── RBAC / Permission Check ────────────────────────────────────────────────
