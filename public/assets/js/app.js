@@ -425,4 +425,89 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(modal);
   });
 
+  // ── Global Horizontal Mouse Drag-to-Scroll on .table-responsive ───────────
+  function initDragToScroll(root = document) {
+    const containers = root.querySelectorAll('.table-responsive, .chart-scroll-container, [data-drag-scroll]');
+
+    containers.forEach((slider) => {
+      if (slider.dataset.dragScrollInit === 'true') return;
+      slider.dataset.dragScrollInit = 'true';
+
+      let isDown = false;
+      let startX = 0;
+      let scrollLeft = 0;
+      let isDragging = false;
+
+      // Cek apakah elemen benar-benar memiliki konten yang meluber horizontal
+      function checkOverflow() {
+        if (slider.scrollWidth > slider.clientWidth + 5) {
+          slider.classList.add('has-scroll-overflow');
+        } else {
+          slider.classList.remove('has-scroll-overflow');
+        }
+      }
+
+      checkOverflow();
+      window.addEventListener('resize', checkOverflow);
+
+      slider.addEventListener('mousedown', (e) => {
+        // Jangan aktifkan drag jika klik di form control, button, anchor, modal, switch, dsb.
+        if (e.target.closest('button, a, input, select, textarea, label, .form-check-input, .dropdown-menu, .modal, .btn')) {
+          return;
+        }
+
+        if (slider.scrollWidth <= slider.clientWidth) return;
+
+        isDown = true;
+        isDragging = false;
+        slider.classList.add('is-dragging-active');
+        startX = e.pageX - slider.getBoundingClientRect().left;
+        scrollLeft = slider.scrollLeft;
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!isDown) return;
+        isDown = false;
+        slider.classList.remove('is-dragging-active');
+        setTimeout(() => {
+          isDragging = false;
+        }, 50);
+      });
+
+      slider.addEventListener('mouseleave', () => {
+        if (!isDown) return;
+        isDown = false;
+        slider.classList.remove('is-dragging-active');
+      });
+
+      slider.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        const x = e.pageX - slider.getBoundingClientRect().left;
+        const walk = (x - startX) * 1.5; // multiplier kecepatan drag
+        if (Math.abs(walk) > 4) {
+          isDragging = true;
+          e.preventDefault();
+          slider.scrollLeft = scrollLeft - walk;
+        }
+      });
+
+      // Mencegah trigger klik pada baris atau elemen anak jika sedang drag
+      slider.addEventListener('click', (e) => {
+        if (isDragging) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
+    });
+  }
+
+  initDragToScroll();
+  window.initDragToScroll = initDragToScroll;
+
+  // Auto-init saat konten HTMX baru dimuat
+  document.body?.addEventListener('htmx:afterSettle', (evt) => {
+    const target = evt.detail?.target || evt.target || document;
+    initDragToScroll(target);
+  });
+
 });

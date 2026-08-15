@@ -7,6 +7,9 @@ class RekapController
 {
     public function index(): void
     {
+        requireLogin();
+        checkPermission('rekap');
+
         // Gerbang Rekap
         view('rekap/index', [
             'title'     => 'Rekapitulasi – Salary',
@@ -17,6 +20,9 @@ class RekapController
 
     public function attendance(): void
     {
+        requireLogin();
+        checkPermission('rekap');
+
         $db = getDB();
         $start_date = $_GET['start_date'] ?? date('Y-m-01');
         $end_date   = $_GET['end_date'] ?? date('Y-m-t');
@@ -48,6 +54,9 @@ class RekapController
 
     public function production(): void
     {
+        requireLogin();
+        checkPermission('rekap');
+
         $db = getDB();
         $start_date = $_GET['start_date'] ?? date('Y-m-01');
         $end_date   = $_GET['end_date'] ?? date('Y-m-t');
@@ -109,6 +118,9 @@ class RekapController
 
     public function overtime(): void
     {
+        requireLogin();
+        checkPermission('rekap');
+
         $db = getDB();
         $start_date = $_GET['start_date'] ?? date('Y-m-01');
         $end_date   = $_GET['end_date'] ?? date('Y-m-t');
@@ -159,6 +171,9 @@ class RekapController
 
     public function employee(): void
     {
+        requireLogin();
+        checkPermission('rekap');
+
         $db = getDB();
         $start_date = $_GET['start_date'] ?? date('Y-m-01');
         $end_date   = $_GET['end_date'] ?? date('Y-m-t');

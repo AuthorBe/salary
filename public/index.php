@@ -211,6 +211,7 @@ $routes = [
     // History Gaji
     'GET /history'          => [\App\Controllers\HistoryController::class, 'index'],
     'GET /history/slip'         => [\App\Controllers\HistoryController::class, 'downloadSlip'],
+    'GET /history/export-slips' => [\App\Controllers\HistoryController::class, 'downloadSlipsBatch'],
     'GET /payroll/export-slips'        => [\App\Controllers\PayrollController::class, 'exportSlipsMass'],
     'GET /payroll/export-combined'     => [\App\Controllers\PayrollController::class, 'exportCombinedPdf'],
 
@@ -240,10 +241,29 @@ try {
     }
 } catch (\Throwable $e) {
     http_response_code(500);
+    $isDebug = (($_ENV['APP_DEBUG'] ?? getenv('APP_DEBUG')) === 'true');
+    $debugInfo = $isDebug ? ($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()) : null;
+
+    if (function_exists('view')) {
+        try {
+            view('errors/500', [
+                'title'      => '500 – Terjadi Kesalahan',
+                'debugError' => $debugInfo
+            ], 'error');
+            exit;
+        } catch (\Throwable $viewErr) {
+            // Fallback jika view gagal render
+        }
+    }
+
     echo "<div style='padding:20px; font-family:sans-serif; background:#f8d7da; color:#721c24; border:1px solid #f5c6cb;'>";
-    echo "<h2>Aplikasi Crash (Error 500)</h2>";
-    echo "<p><strong>Pesan Error:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
-    echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . " pada baris " . $e->getLine() . "</p>";
+    echo "<h2>Terjadi Kesalahan (Error 500)</h2>";
+    if ($isDebug) {
+        echo "<p><strong>Pesan:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+        echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . ":" . $e->getLine() . "</p>";
+    } else {
+        echo "<p>Sistem mengalami kendala saat memproses permintaan. Silakan hubungi Administrator.</p>";
+    }
     echo "</div>";
     exit;
 }

@@ -462,7 +462,7 @@ class PayrollController
                                 (float)$d['nominal'], 
                                 date('Y-m-d'), 
                                 'payroll', 
-                                $runId, 
+                                'Potongan Otomatis Payroll #' . $runId, 
                                 $item['id']
                             );
                         }
@@ -1002,7 +1002,7 @@ public function exportPdf(): void
         $endDate = $run['periode_akhir'];
         $options = json_decode($run['options_json'] ?? '[]', true) ?: [];
         
-        if ($run['type'] === 'gabungan') {
+        if ($run['type'] === 'mixed' || $run['type'] === 'gabungan') {
             if ($item['tipe_gaji'] === 'borongan' && isset($options['borongan'])) {
                 $startDate = $options['borongan']['start'];
                 $endDate = $options['borongan']['end'];

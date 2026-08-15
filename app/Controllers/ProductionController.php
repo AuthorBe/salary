@@ -213,8 +213,8 @@ class ProductionController
 
         if (isHtmx()) {
             if ($source === 'history') {
-                // Return script to trigger htmx reload on history page
-                echo "<script>window.location.reload();</script>";
+                header('HX-Refresh: true');
+                return;
             } else {
                 $this->loadForm();
             }

@@ -66,6 +66,11 @@ class UserController
         $roleId = (int) ($_POST['id_peran'] ?? 0);
         $isActive = isset($_POST['aktif']) ? 1 : 0;
 
+        // Proteksi self-lockout: Pengguna tidak boleh menonaktifkan akun sendiri
+        if ($id > 0 && $id === (int)($_SESSION['user_id'] ?? 0) && !$isActive) {
+            $isActive = 1;
+        }
+
         $userModel = new User();
 
         if ($id > 0) {

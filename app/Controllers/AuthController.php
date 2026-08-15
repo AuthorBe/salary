@@ -83,6 +83,12 @@ class AuthController
             redirect('/login');
         }
 
+        // Step 4.5: Periksa apakah akun berstatus aktif
+        if (empty($user['aktif'])) {
+            $_SESSION['login_error'] = 'Akun Anda telah dinonaktifkan. Silakan hubungi Administrator.';
+            redirect('/login');
+        }
+
         // Step 5: Login berhasil — set session
         // Regenerate session ID untuk mencegah session fixation attack
         session_regenerate_id(true);

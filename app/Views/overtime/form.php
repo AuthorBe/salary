@@ -26,9 +26,12 @@ foreach ($boronganEmps as $emp) {
 $bulananEmpsForJs = [];
 foreach ($bulananEmps as $emp) {
     if (!(bool)$emp['aktif']) continue;
+    $currLembur = (float)($attendances[$emp['id']]['lembur_nominal'] ?? 0);
     $bulananEmpsForJs[] = [
-        'id'   => $emp['id'],
-        'name' => $emp['name'],
+        'id'             => $emp['id'],
+        'name'           => $emp['name'],
+        'current_lembur' => $currLembur,
+        'label'          => $emp['name'] . ($currLembur > 0 ? ' [Lembur Saat Ini: ' . formatRupiah((int)$currLembur) . ']' : ''),
     ];
 }
 
@@ -341,7 +344,7 @@ $activeTab = $_GET['tab'] ?? 'borongan';
             opt.dataset.id   = item.id;
             opt.dataset.name = item.name;
             opt.dataset.idx  = idx;
-            opt.innerHTML    = `<span>${item.name}</span>`;
+            opt.innerHTML    = `<span>${item.label || item.name}</span>`;
 
             opt.addEventListener('mousedown', (e) => {
                 e.preventDefault();
@@ -508,6 +511,22 @@ $activeTab = $_GET['tab'] ?? 'borongan';
             data: BULANAN_EMPS_DATA,
             onSelect: function(id, name) {
                 if (hiddenId) hiddenId.value = id;
+                const row = wrapper.closest('.bulanan-row');
+                if (row) {
+                    let hintEl = row.querySelector('.bulanan-lembur-hint');
+                    const empItem = BULANAN_EMPS_DATA.find(e => e.id == id);
+                    if (empItem && empItem.current_lembur > 0) {
+                        if (!hintEl) {
+                            hintEl = document.createElement('div');
+                            hintEl.className = 'bulanan-lembur-hint text-info small mt-1';
+                            wrapper.parentElement.appendChild(hintEl);
+                        }
+                        const formattedLembur = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(empItem.current_lembur);
+                        hintEl.innerHTML = `<i class="bi bi-info-circle me-1"></i>Lembur tercatat saat ini: <strong>${formattedLembur}</strong> (Nominal baru akan ditambahkan)`;
+                    } else if (hintEl) {
+                        hintEl.remove();
+                    }
+                }
             }
         });
     }

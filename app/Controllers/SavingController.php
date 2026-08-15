@@ -50,7 +50,9 @@ class SavingController
 
     public function store(): void
     {
+        requireLogin();
         checkPermission('savings');
+        validateCsrfToken();
         header('Content-Type: application/json');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -70,35 +72,51 @@ class SavingController
             return;
         }
 
+        $db = getDB();
         $savingModel = new Saving();
         $transModel = new SavingTransaction();
 
-        $currentBalance = $savingModel->getBalance($employeeId);
+        try {
+            $db->beginTransaction();
 
-        if ($type === 'withdrawal' && $amount > $currentBalance) {
-            echo json_encode(['success' => false, 'message' => 'Saldo tabungan tidak mencukupi untuk ditarik.']);
-            return;
-        }
+            $currentBalance = $savingModel->getBalance($employeeId);
 
-        $success = $transModel->create($employeeId, $type, $amount, 'manual', $date, null, $notes);
+            if ($type === 'withdrawal' && $amount > $currentBalance) {
+                $db->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Saldo tabungan tidak mencukupi untuk ditarik.']);
+                return;
+            }
 
-        if ($success) {
+            $success = $transModel->create($employeeId, $type, $amount, 'manual', $date, null, $notes);
+            if (!$success) {
+                $db->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Gagal menyimpan transaksi ke database.']);
+                return;
+            }
+
             $adjustAmount = $type === 'deposit' ? $amount : -$amount;
             $savingModel->adjustBalance($employeeId, $adjustAmount);
-            
+
             $newBalance = $savingModel->getBalance($employeeId);
+
+            $db->commit();
+
             echo json_encode([
                 'success' => true, 
                 'message' => 'Transaksi berhasil disimpan.',
                 'new_balance' => $newBalance
             ]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Gagal menyimpan ke database.']);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()]);
         }
     }
 
     public function getHistory(): void
     {
+        requireLogin();
         checkPermission('savings');
         header('Content-Type: application/json');
 
@@ -128,7 +146,9 @@ class SavingController
 
     public function update(): void
     {
+        requireLogin();
         checkPermission('savings');
+        validateCsrfToken();
         header('Content-Type: application/json');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -146,44 +166,57 @@ class SavingController
             return;
         }
 
+        $db = getDB();
         $transModel = new SavingTransaction();
         $savingModel = new Saving();
 
-        $transaction = $transModel->findById($id);
-        if (!$transaction) {
-            echo json_encode(['success' => false, 'message' => 'Transaksi tidak ditemukan.']);
-            return;
-        }
+        try {
+            $db->beginTransaction();
 
-        if ($transaction['sumber'] !== 'manual') {
-            echo json_encode(['success' => false, 'message' => 'Hanya transaksi manual yang bisa diubah.']);
-            return;
-        }
-
-        $oldAmount = (float) $transaction['jumlah'];
-        $type = $transaction['tipe'];
-        $employeeId = (int) $transaction['id_karyawan'];
-
-        // Cek validasi saldo
-        $currentBalance = $savingModel->getBalance($employeeId);
-        if ($type === 'withdrawal') {
-            // Saldo semu (kembalikan dulu yang lama)
-            $virtualBalance = $currentBalance + $oldAmount;
-            if ($newAmount > $virtualBalance) {
-                echo json_encode(['success' => false, 'message' => 'Saldo tidak mencukupi (termasuk saldo sebelum transaksi ini).']);
+            $transaction = $transModel->findById($id);
+            if (!$transaction) {
+                $db->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Transaksi tidak ditemukan.']);
                 return;
             }
-        } else if ($type === 'deposit' && $newAmount < $oldAmount) {
-            // Jika menurunkan nilai setoran, cek apakah saldo cukup untuk dipotong selisihnya
-            $diff = $oldAmount - $newAmount;
-            if ($diff > $currentBalance) {
-                echo json_encode(['success' => false, 'message' => 'Gagal mengubah: Saldo akan menjadi negatif karena karyawan sudah menarik sebagian tabungannya.']);
+
+            if ($transaction['sumber'] !== 'manual') {
+                $db->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Hanya transaksi manual yang bisa diubah.']);
                 return;
             }
-        }
 
-        $success = $transModel->update($id, $newAmount, $notes);
-        if ($success) {
+            $oldAmount = (float) $transaction['jumlah'];
+            $type = $transaction['tipe'];
+            $employeeId = (int) $transaction['id_karyawan'];
+
+            // Cek validasi saldo
+            $currentBalance = $savingModel->getBalance($employeeId);
+            if ($type === 'withdrawal') {
+                // Saldo semu (kembalikan dulu yang lama)
+                $virtualBalance = $currentBalance + $oldAmount;
+                if ($newAmount > $virtualBalance) {
+                    $db->rollBack();
+                    echo json_encode(['success' => false, 'message' => 'Saldo tidak mencukupi (termasuk saldo sebelum transaksi ini).']);
+                    return;
+                }
+            } else if ($type === 'deposit' && $newAmount < $oldAmount) {
+                // Jika menurunkan nilai setoran, cek apakah saldo cukup untuk dipotong selisihnya
+                $diff = $oldAmount - $newAmount;
+                if ($diff > $currentBalance) {
+                    $db->rollBack();
+                    echo json_encode(['success' => false, 'message' => 'Gagal mengubah: Saldo akan menjadi negatif karena karyawan sudah menarik sebagian tabungannya.']);
+                    return;
+                }
+            }
+
+            $success = $transModel->update($id, $newAmount, $notes);
+            if (!$success) {
+                $db->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Gagal mengubah transaksi.']);
+                return;
+            }
+
             // Rollback old amount, apply new amount
             if ($type === 'deposit') {
                 $savingModel->adjustBalance($employeeId, -$oldAmount); // undo old
@@ -195,19 +228,27 @@ class SavingController
             }
 
             $newBalance = $savingModel->getBalance($employeeId);
+
+            $db->commit();
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Transaksi berhasil diubah.',
                 'new_balance' => $newBalance
             ]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Gagal mengubah transaksi.']);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()]);
         }
     }
 
     public function delete(): void
     {
+        requireLogin();
         checkPermission('savings');
+        validateCsrfToken();
         header('Content-Type: application/json');
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -221,35 +262,47 @@ class SavingController
             return;
         }
 
+        $db = getDB();
         $transModel = new SavingTransaction();
         $savingModel = new Saving();
 
-        $transaction = $transModel->findById($id);
-        if (!$transaction) {
-            echo json_encode(['success' => false, 'message' => 'Transaksi tidak ditemukan.']);
-            return;
-        }
+        try {
+            $db->beginTransaction();
 
-        if ($transaction['sumber'] !== 'manual') {
-            echo json_encode(['success' => false, 'message' => 'Hanya transaksi manual yang bisa dihapus.']);
-            return;
-        }
-
-        $amount = (float) $transaction['jumlah'];
-        $type = $transaction['tipe'];
-        $employeeId = (int) $transaction['id_karyawan'];
-
-        // Cek apakah kalau hapus deposit, saldo malah jadi minus
-        if ($type === 'deposit') {
-            $currentBalance = $savingModel->getBalance($employeeId);
-            if ($amount > $currentBalance) {
-                echo json_encode(['success' => false, 'message' => 'Gagal menghapus: Saldo akan menjadi negatif (sudah ada penarikan setelah ini).']);
+            $transaction = $transModel->findById($id);
+            if (!$transaction) {
+                $db->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Transaksi tidak ditemukan.']);
                 return;
             }
-        }
 
-        $success = $transModel->delete($id);
-        if ($success) {
+            if ($transaction['sumber'] !== 'manual') {
+                $db->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Hanya transaksi manual yang bisa dihapus.']);
+                return;
+            }
+
+            $amount = (float) $transaction['jumlah'];
+            $type = $transaction['tipe'];
+            $employeeId = (int) $transaction['id_karyawan'];
+
+            // Cek apakah kalau hapus deposit, saldo malah jadi minus
+            if ($type === 'deposit') {
+                $currentBalance = $savingModel->getBalance($employeeId);
+                if ($amount > $currentBalance) {
+                    $db->rollBack();
+                    echo json_encode(['success' => false, 'message' => 'Gagal menghapus: Saldo akan menjadi negatif (sudah ada penarikan setelah ini).']);
+                    return;
+                }
+            }
+
+            $success = $transModel->delete($id);
+            if (!$success) {
+                $db->rollBack();
+                echo json_encode(['success' => false, 'message' => 'Gagal menghapus transaksi.']);
+                return;
+            }
+
             // Rollback saldo
             if ($type === 'deposit') {
                 $savingModel->adjustBalance($employeeId, -$amount);
@@ -258,13 +311,19 @@ class SavingController
             }
 
             $newBalance = $savingModel->getBalance($employeeId);
+
+            $db->commit();
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Transaksi berhasil dihapus.',
                 'new_balance' => $newBalance
             ]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Gagal menghapus transaksi.']);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()]);
         }
     }
 }

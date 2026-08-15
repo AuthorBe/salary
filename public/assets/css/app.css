@@ -2280,4 +2280,62 @@ body.modal-open::-webkit-scrollbar,
 .salary-flash-toast.salary-toast-success .swal2-timer-progress-bar { background: #10b981 !important; }
 .salary-flash-toast.salary-toast-info .swal2-timer-progress-bar { background: #3b82f6 !important; }
 
+/* ── Mouse Drag-to-Scroll Horizontal Tables ──────────────────────────────── */
+.table-responsive,
+.chart-scroll-container,
+[data-drag-scroll] {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f8fafc;
+    transition: background-color 0.15s ease;
+}
+
+.table-responsive::-webkit-scrollbar,
+.chart-scroll-container::-webkit-scrollbar,
+[data-drag-scroll]::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track,
+.chart-scroll-container::-webkit-scrollbar-track,
+[data-drag-scroll]::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb,
+.chart-scroll-container::-webkit-scrollbar-thumb,
+[data-drag-scroll]::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover,
+.chart-scroll-container::-webkit-scrollbar-thumb:hover,
+[data-drag-scroll]::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Saat mouse hover di tabel yang bisa di-scroll horizontal */
+.table-responsive.has-scroll-overflow,
+.drag-scroll-active {
+    cursor: grab !important;
+}
+
+/* Saat aktif di-drag / digeser mouse */
+.table-responsive.is-dragging-active,
+.chart-scroll-container.is-dragging-active,
+[data-drag-scroll].is-dragging-active,
+.is-dragging-active {
+    cursor: grabbing !important;
+    cursor: -webkit-grabbing !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+.table-responsive.is-dragging-active * {
+    cursor: grabbing !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
 

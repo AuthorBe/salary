@@ -23,6 +23,12 @@ function streamPdf(string $html, string $filename, string $paper = 'A4', string 
     ini_set('memory_limit', '512M');
     ini_set('max_execution_time', '300');
 
+    // Sanitasi nama file agar tidak terjadi HTTP header injection atau error karakter khusus
+    $cleanFilename = preg_replace('/[^\w\- .]/', '_', trim($filename));
+    if (!$cleanFilename) {
+        $cleanFilename = 'dokumen_' . date('Ymd_His');
+    }
+
     // Konfigurasi Dompdf
     $options = new Options();
     $options->set('isHtml5ParserEnabled', true);
@@ -41,7 +47,7 @@ function streamPdf(string $html, string $filename, string $paper = 'A4', string 
     $dompdf->render();
     
     // Output the generated PDF to Browser
-    $dompdf->stream($filename . '.pdf', [
+    $dompdf->stream($cleanFilename . '.pdf', [
         'Attachment' => true // true = force download, false = open in browser
     ]);
     exit;

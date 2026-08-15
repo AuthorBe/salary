@@ -161,7 +161,9 @@ class DashboardController
                                IF(a.hadir=1, ' Hadir', IF(a.catatan IS NOT NULL AND TRIM(a.catatan) != '', CONCAT(' Tidak Hadir (', a.catatan, ')'), ' Tidak Hadir (Alfa)'))) as keterangan, 
                         a.created_at
                  FROM absensi a 
-                 LEFT JOIN karyawan e ON a.id_karyawan = e.id)
+                 LEFT JOIN karyawan e ON a.id_karyawan = e.id
+                 ORDER BY a.created_at DESC
+                 LIMIT 5)
                 UNION ALL
                 (SELECT 'Produksi' as type, 
                         CONCAT('Produksi: ', COALESCE(e.name, 'Karyawan'), ' - ', 
@@ -172,13 +174,17 @@ class DashboardController
                  FROM produksi p 
                  LEFT JOIN karyawan e ON p.id_karyawan = e.id 
                  LEFT JOIN produk pr ON p.id_produk = pr.id
-                 WHERE (p.kuantitas > 0 OR p.lembur_kuantitas > 0 OR p.kuantitas_bal > 0 OR p.lembur_kuantitas_bal > 0))
+                 WHERE (p.kuantitas > 0 OR p.lembur_kuantitas > 0 OR p.kuantitas_bal > 0 OR p.lembur_kuantitas_bal > 0)
+                 ORDER BY p.created_at DESC
+                 LIMIT 5)
                 UNION ALL
                 (SELECT 'Kasbon' as type, 
                         CONCAT('Kasbon: ', COALESCE(e.name, 'Karyawan'), ' mencatat hutang baru') as keterangan, 
                         d.created_at
                  FROM kasbon d 
-                 LEFT JOIN karyawan e ON d.id_karyawan = e.id)
+                 LEFT JOIN karyawan e ON d.id_karyawan = e.id
+                 ORDER BY d.created_at DESC
+                 LIMIT 5)
                 ORDER BY created_at DESC
                 LIMIT 5
             ");

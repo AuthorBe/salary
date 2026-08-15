@@ -154,8 +154,12 @@ foreach ($includedItems as $it) {
 
 <!-- Detailed Table -->
 <div class="card border-0 shadow-sm rounded-4">
-    <div class="card-header bg-white border-bottom-0 pt-4 px-4 pb-0">
+    <div class="card-header bg-white border-bottom-0 pt-4 px-4 pb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
         <h5 class="fw-bold text-dark mb-0">Rincian per Karyawan</h5>
+        <div class="d-none d-md-flex align-items-center gap-1.5 text-muted small bg-light border px-2.5 py-1 rounded-pill" style="font-size: 0.75rem;">
+            <i class="bi bi-arrows-expand text-primary"></i>
+            <span>Tahan & geser mouse untuk scroll tabel</span>
+        </div>
     </div>
     <div class="card-body p-4">
         <div class="table-responsive">
