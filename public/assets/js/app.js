@@ -8,24 +8,48 @@
 
 'use strict';
 
-// ── Service Worker Registration (PWA) ────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    // Gunakan root-relative path karena sw.js ada di root (public/sw.js)
-    // Di VHost ini akan menjadi /sw.js, namun di subdirektori kita harus pastikan
-    // path base-nya dinamis. Karena app.js dimuat relatif terhadap document base,
-    // kita gunakan getAppBasePath() dari backend (tapi karena ini static JS, kita ambil
-    // dari href manifest atau path window.location).
-    const swUrl = document.querySelector('link[rel="manifest"]')?.href.replace('manifest.json', 'sw.js') || '/sw.js';
-    navigator.serviceWorker.register(swUrl)
-      .then(registration => {
-        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-      })
-      .catch(err => {
-        console.log('ServiceWorker registration failed: ', err);
-      });
-  });
-}
+// ── Global Flash Notification / Toast (Top-Right Floating) ──────────────────
+window.showToast = function(message, type = 'info', title = '') {
+  if (typeof Swal !== 'undefined') {
+    const iconMap = {
+      'danger': 'error',
+      'error': 'error',
+      'warning': 'warning',
+      'success': 'success',
+      'info': 'info'
+    };
+    const swalIcon = iconMap[type] || type;
+    const defaultTitles = {
+      'error': 'Terjadi Kesalahan',
+      'warning': 'Perhatian',
+      'success': 'Berhasil',
+      'info': 'Informasi'
+    };
+    
+    const Toast = Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 3500,
+      timerProgressBar: true,
+      didOpen: (toast) => {
+        toast.onmouseenter = Swal.stopTimer;
+        toast.onmouseleave = Swal.resumeTimer;
+      },
+      customClass: {
+        popup: 'salary-flash-toast salary-toast-' + swalIcon
+      }
+    });
+
+    Toast.fire({
+      icon: swalIcon,
+      title: title || defaultTitles[swalIcon] || 'Notifikasi',
+      text: message
+    });
+  } else {
+    alert(message);
+  }
+};
 
 document.addEventListener('DOMContentLoaded', () => {
 

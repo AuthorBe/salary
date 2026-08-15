@@ -104,17 +104,23 @@
 <body>
 
     <div class="header">
-        <h1>REKAPITULASI PEMBAYARAN GAJI BULANAN</h1>
-        <p>Sistem Penggajian - Laporan Keuangan</p>
+        <h1><?= htmlspecialchars($reportTitle ?? 'REKAPITULASI PEMBAYARAN GAJI') ?></h1>
+        <p>Sistem Penggajian - Laporan Keuangan Eksekutif</p>
     </div>
 
     <table class="info-table">
         <tr>
-            <td class="info-label" width="15%">Bulan</td>
-            <td width="35%">: <strong><?= htmlspecialchars($bulanName) ?></strong></td>
-            <td class="info-label" width="15%">Dicetak Pada</td>
-            <td width="35%">: <?= date('d F Y H:i') ?></td>
+            <td class="info-label" width="16%">Periode / Siklus</td>
+            <td width="44%">: <strong><?= htmlspecialchars($periodLabel ?? $bulanName) ?></strong></td>
+            <td class="info-label" width="14%">Dicetak Pada</td>
+            <td width="26%">: <?= date('d F Y H:i') ?></td>
         </tr>
+        <?php if (!empty($batchListStr)): ?>
+        <tr>
+            <td class="info-label" style="vertical-align: top; padding-top: 3px;">Batch Payroll</td>
+            <td colspan="3" style="padding-top: 3px;">: <span style="color: #444;"><?= htmlspecialchars($batchListStr) ?></span></td>
+        </tr>
+        <?php endif; ?>
     </table>
 
     <table class="data-table">
@@ -248,6 +254,11 @@
                     $printSubTotal($currentType, $subTotal);
                 }
             ?>
+            <?php if (empty($items)): ?>
+            <tr>
+                <td colspan="14" class="text-center" style="padding: 12px; font-style: italic;">Tidak ada rincian data penggajian pada periode ini.</td>
+            </tr>
+            <?php endif; ?>
         </tbody>
         <tfoot>
             <tr class="footer-row">
@@ -274,15 +285,15 @@
     
     <div class="header">
         <h1>LAMPIRAN: REKAPITULASI ABSENSI HARIAN</h1>
-        <p>Sistem Penggajian - Bulan <?= htmlspecialchars($bulanName) ?></p>
+        <p>Sistem Penggajian - Periode <?= htmlspecialchars($periodLabel ?? $bulanName) ?></p>
     </div>
 
     <?php
-        $startDate = new DateTime($bulan . '-01');
-        $endDate = new DateTime(date('Y-m-t', strtotime($bulan . '-01')));
-        $interval = new DateInterval('P1D');
-        // We modify endDate by +1 day because DatePeriod end date is exclusive
-        $dateRange = new DatePeriod($startDate, $interval, $endDate->modify('+1 day'));
+        $startDt = !empty($startDateStr) ? new \DateTime($startDateStr) : new \DateTime(($bulanParam ?? date('Y-m')) . '-01');
+        $endDt = !empty($endDateStr) ? new \DateTime($endDateStr) : new \DateTime(date('Y-m-t', strtotime(($bulanParam ?? date('Y-m')) . '-01')));
+        $interval = new \DateInterval('P1D');
+        // We modify endDt by +1 day because DatePeriod end date is exclusive
+        $dateRange = new \DatePeriod($startDt, $interval, (clone $endDt)->modify('+1 day'));
         $dates = [];
         $weeks = [];
         $currentWeek = 1;

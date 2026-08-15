@@ -323,33 +323,67 @@
 <script src="<?= assetUrl('js/keyboard-nav.js') ?>?v=<?= time() ?>"></script>
 <script src="<?= assetUrl('js/searchable-select.js') ?>?v=<?= time() ?>"></script>
 
+<?php
+$sessionToast = null;
+if (isset($_SESSION['flash_success'])) {
+    $sessionToast = ['type' => 'success', 'msg' => $_SESSION['flash_success']];
+    unset($_SESSION['flash_success']);
+} elseif (isset($_SESSION['flash_error'])) {
+    $sessionToast = ['type' => 'error', 'msg' => $_SESSION['flash_error']];
+    unset($_SESSION['flash_error']);
+} elseif (isset($_SESSION['flash_warning'])) {
+    $sessionToast = ['type' => 'warning', 'msg' => $_SESSION['flash_warning']];
+    unset($_SESSION['flash_warning']);
+} elseif (isset($_SESSION['flash_info'])) {
+    $sessionToast = ['type' => 'info', 'msg' => $_SESSION['flash_info']];
+    unset($_SESSION['flash_info']);
+}
+?>
+<?php if ($sessionToast): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof showToast === 'function') {
+        showToast(<?= json_encode($sessionToast['msg'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>, <?= json_encode($sessionToast['type']) ?>);
+    }
+});
+</script>
+<?php endif; ?>
+
 <?php if (isset($pageGuide) && !empty($pageGuide)): ?>
 <!-- Modal Panduan Halaman -->
 <div class="modal fade" id="guideModal" tabindex="-1" aria-labelledby="guideModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content border-0" style="border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" style="max-width: 580px;">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 1.25rem; overflow: hidden;">
       
       <!-- Decorative Top Gradient Line -->
-      <div style="height: 6px; background: linear-gradient(90deg, #4f46e5, #0ea5e9); border-radius: 1.5rem 1.5rem 0 0;"></div>
+      <div style="height: 5px; background: linear-gradient(90deg, #4f46e5, #0ea5e9);"></div>
 
-      <button type="button" class="btn-close position-absolute top-0 end-0 mt-4 me-4" data-bs-dismiss="modal" aria-label="Close" style="z-index: 10;"></button>
-
-      <div class="modal-body p-4 p-sm-5 pb-2">
-        <div class="d-flex align-items-center mb-4">
-            <div class="d-flex align-items-center justify-content-center rounded-4 me-3" style="width: 56px; height: 56px; background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);">
-                <i class="bi bi-lightbulb-fill" style="font-size: 1.75rem; color: #0284c7;"></i>
+      <!-- Modal Header -->
+      <div class="modal-header border-0 px-4 pt-4 pb-2 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-inline-flex align-items-center justify-content-center rounded-3" style="width: 44px; height: 44px; background: #e0f2fe; color: #0284c7; flex-shrink: 0;">
+                <i class="bi bi-lightbulb-fill fs-5"></i>
             </div>
-            <h4 class="modal-title fw-bold mb-0 text-dark" style="letter-spacing: -0.5px;">Panduan Penggunaan</h4>
+            <div>
+                <h5 class="modal-title fw-bold text-dark mb-0" id="guideModalLabel" style="letter-spacing: -0.3px;">Panduan Penggunaan</h5>
+                <small class="text-muted">Fitur & Panduan Operasional Sistem</small>
+            </div>
         </div>
-        
-        <div class="guide-content text-secondary" style="font-size: 0.95rem; line-height: 1.7;">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body px-4 py-3" style="max-height: 65vh;">
+        <div class="guide-content text-secondary" style="font-size: 0.9rem; line-height: 1.6;">
           <?= $pageGuide ?>
         </div>
       </div>
       
-      <div class="modal-footer border-0 pt-0 pb-4 pb-sm-5 px-4 px-sm-5 justify-content-center">
-        <button type="button" class="btn btn-primary w-100 rounded-pill py-2 fw-semibold shadow-sm" data-bs-dismiss="modal" style="background: linear-gradient(to right, #0284c7, #3b82f6); border: none; transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 20px -10px rgba(59, 130, 246, 0.5)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 .125rem .25rem rgba(0,0,0,.075)';">
-          Paham, Terima Kasih!
+      <!-- Modal Footer -->
+      <div class="modal-footer border-0 px-4 pt-2 pb-4 justify-content-center bg-white" style="border-top: 1px solid #f1f5f9 !important;">
+        <button type="button" class="btn btn-primary w-100 rounded-pill py-2.5 fw-semibold shadow-sm d-flex align-items-center justify-content-center gap-2" data-bs-dismiss="modal" style="background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); border: none; font-size: 0.9rem;">
+          <i class="bi bi-check2-circle fs-5"></i>
+          <span>Paham, Terima Kasih!</span>
         </button>
       </div>
     </div>
