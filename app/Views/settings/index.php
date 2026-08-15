@@ -136,3 +136,19 @@ $days = [
         </button>
     </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const startSelect = document.getElementById('week_start_day');
+    const endSelect = document.getElementById('week_end_day');
+    if (startSelect && endSelect) {
+        startSelect.addEventListener('change', function() {
+            const startVal = parseInt(this.value, 10);
+            if (!isNaN(startVal)) {
+                const autoEndVal = (startVal + 6) % 7;
+                endSelect.value = autoEndVal.toString();
+            }
+        });
+    }
+});
+</script>

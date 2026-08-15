@@ -43,20 +43,20 @@ class PayrollController
         
         $settingModel = new \App\Models\AppSetting();
         $weekStartDay = (int) $settingModel->get('week_start_day', '1');
-        $weekEndDay = (int) $settingModel->get('week_end_day', '0');
-        $map = [0 => 'sunday', 1 => 'monday', 2 => 'tuesday', 3 => 'wednesday', 4 => 'thursday', 5 => 'friday', 6 => 'saturday'];
         
-        $endDayName = $map[$weekEndDay];
-        $startDayName = $map[$weekStartDay];
+        $todayObj = new \DateTime();
+        $currentDayOfWeek = (int)$todayObj->format('w');
+        $diff = ($currentDayOfWeek - $weekStartDay + 7) % 7;
+
+        $startThisWeek = (clone $todayObj)->modify("-{$diff} days");
+        $endThisWeek = (clone $startThisWeek)->modify('+6 days');
+
+        $startLastWeek = (clone $startThisWeek)->modify('-7 days');
+        $endLastWeek = (clone $startThisWeek)->modify('-1 day');
         
-        // Default Mingguan
-        $endWeekly = new \DateTime("last " . $endDayName);
-        $startWeekly = clone $endWeekly;
-        if ($weekStartDay === $weekEndDay) {
-            $startWeekly->modify('-6 days');
-        } else {
-            $startWeekly->modify("last " . $startDayName);
-        }
+        // Default Mingguan: pekan lalu (yang baru tutup buku)
+        $startWeekly = $startLastWeek;
+        $endWeekly = $endLastWeek;
         
         // Default Bulanan (Bulan ini)
         $startMonthly = new \DateTime('first day of this month');
@@ -76,7 +76,6 @@ class PayrollController
             'default_monthly_end' => $endMonthly->format('Y-m-d'),
         ]);
     }
-
     
     public function store(): void
     {

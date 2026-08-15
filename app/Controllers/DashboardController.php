@@ -76,15 +76,15 @@ class DashboardController
             }
         }
 
-        // 3. Data Produksi Hari Ini
+        // 3. Data Produksi Hari Ini (Termasuk Reguler + Lembur)
         $prodModel = new \App\Models\Production();
         $todayProductions = $prodModel->getByDate($today);
         $totalBungkusToday = 0;
         $totalBalToday = 0;
         foreach ($todayProductions as $empProds) {
             foreach ($empProds as $pData) {
-                $totalBungkusToday += (int) ($pData['kuantitas'] ?? 0);
-                $totalBalToday += (int) ($pData['kuantitas_bal'] ?? 0);
+                $totalBungkusToday += (int) ($pData['kuantitas'] ?? 0) + (int) ($pData['lembur_kuantitas'] ?? 0);
+                $totalBalToday += (int) ($pData['kuantitas_bal'] ?? 0) + (int) ($pData['lembur_kuantitas_bal'] ?? 0);
             }
         }
 
@@ -93,59 +93,92 @@ class DashboardController
         $allProducts = $productModel->getAllWithGroup();
         $totalProducts = count($allProducts);
 
+        // 5. Perhitungan Siklus Pekan & Top Produksi (Modular Formula)
         $settingModel = new \App\Models\AppSetting();
         $weekStartDay = (int) $settingModel->get('week_start_day', '1');
-        $weekEndDay = (int) $settingModel->get('week_end_day', '0');
-        $map = [0 => 'sunday', 1 => 'monday', 2 => 'tuesday', 3 => 'wednesday', 4 => 'thursday', 5 => 'friday', 6 => 'saturday'];
         
-        $endDayName = $map[$weekEndDay];
-        $startDayName = $map[$weekStartDay];
+        $todayObj = new \DateTime($today);
+        $currentDayOfWeek = (int)$todayObj->format('w'); // 0 (Minggu) .. 6 (Sabtu)
+        $diff = ($currentDayOfWeek - $weekStartDay + 7) % 7;
 
-        $todayStr = date('l');
-        $endThisWeek = new \DateTime();
-        if (strtolower($todayStr) !== $endDayName) {
-            $endThisWeek->modify("next " . $endDayName);
-        }
-        
-        $startThisWeek = clone $endThisWeek;
-        if ($weekStartDay === $weekEndDay) {
-            $startThisWeek->modify('-6 days');
-        } else {
-            $startThisWeek->modify("last " . $startDayName);
-        }
-        
+        $startThisWeek = (clone $todayObj)->modify("-{$diff} days");
+        $endThisWeek = (clone $startThisWeek)->modify('+6 days');
+
+        $startLastWeek = (clone $startThisWeek)->modify('-7 days');
+        $endLastWeek = (clone $startThisWeek)->modify('-1 day');
+
+        $start7Days = (clone $todayObj)->modify('-6 days');
+        $end7Days = clone $todayObj;
+
         $startOfWeek = $startThisWeek->format('Y-m-d');
         $endOfWeek = $endThisWeek->format('Y-m-d');
+        $startOfLastWeek = $startLastWeek->format('Y-m-d');
+        $endOfLastWeek = $endLastWeek->format('Y-m-d');
+        $startOf7Days = $start7Days->format('Y-m-d');
+        $endOf7Days = $end7Days->format('Y-m-d');
+
         $db = getDB();
         
         $topEmployees = [];
+        $topEmployeesLastWeek = [];
+        $topEmployees7Days = [];
+
         try {
-            $stmt = $db->prepare("
-                SELECT e.name, e.tipe_gaji, SUM(p.kuantitas) as total_bungkus 
+            $topQuery = "
+                SELECT 
+                    e.id,
+                    e.name, 
+                    e.tipe_gaji, 
+                    SUM(COALESCE(p.kuantitas, 0) + COALESCE(p.lembur_kuantitas, 0)) as total_bungkus,
+                    SUM(COALESCE(p.kuantitas_bal, 0) + COALESCE(p.lembur_kuantitas_bal, 0)) as total_bal
                 FROM produksi p
                 JOIN karyawan e ON p.id_karyawan = e.id
                 WHERE p.date BETWEEN ? AND ?
-                GROUP BY p.id_karyawan
-                ORDER BY total_bungkus DESC
+                GROUP BY e.id, e.name, e.tipe_gaji
+                HAVING total_bungkus > 0 OR total_bal > 0
+                ORDER BY total_bungkus DESC, total_bal DESC
                 LIMIT 5
-            ");
+            ";
+            $stmt = $db->prepare($topQuery);
+            
             if ($stmt->execute([$startOfWeek, $endOfWeek])) {
                 $topEmployees = $stmt->fetchAll();
             }
+            if ($stmt->execute([$startOfLastWeek, $endOfLastWeek])) {
+                $topEmployeesLastWeek = $stmt->fetchAll();
+            }
+            if ($stmt->execute([$startOf7Days, $endOf7Days])) {
+                $topEmployees7Days = $stmt->fetchAll();
+            }
         } catch (\Exception $e) {}
 
-        // 6. Data Log Aktivitas (Recent 5)
+        // 6. Data Log Aktivitas (Recent 5) dengan proteksi data lengkap & null safety
         $activities = [];
         try {
             $stmt = $db->query("
-                (SELECT 'Kehadiran' as type, CONCAT('Kehadiran: ', e.name, IF(a.hadir=1, ' Hadir', CONCAT(' Tidak Hadir (', IFNULL(a.catatan, ''), ')'))) as keterangan, a.created_at
-                 FROM absensi a JOIN karyawan e ON a.id_karyawan = e.id)
+                (SELECT 'Kehadiran' as type, 
+                        CONCAT('Kehadiran: ', COALESCE(e.name, 'Karyawan'), 
+                               IF(a.hadir=1, ' Hadir', IF(a.catatan IS NOT NULL AND TRIM(a.catatan) != '', CONCAT(' Tidak Hadir (', a.catatan, ')'), ' Tidak Hadir (Alfa)'))) as keterangan, 
+                        a.created_at
+                 FROM absensi a 
+                 LEFT JOIN karyawan e ON a.id_karyawan = e.id)
                 UNION ALL
-                (SELECT 'Produksi' as type, CONCAT('Produksi: ', e.name, ' - ', p.kuantitas, ' bungkus (', pr.name, ')') as keterangan, p.created_at
-                 FROM produksi p JOIN karyawan e ON p.id_karyawan = e.id JOIN produk pr ON p.id_produk = pr.id)
+                (SELECT 'Produksi' as type, 
+                        CONCAT('Produksi: ', COALESCE(e.name, 'Karyawan'), ' - ', 
+                               (COALESCE(p.kuantitas, 0) + COALESCE(p.lembur_kuantitas, 0)), ' bungkus',
+                               IF(p.lembur_kuantitas > 0 AND p.kuantitas = 0, ' (Lembur)', IF(p.lembur_kuantitas > 0, ' (Termasuk Lembur)', '')),
+                               ' (', COALESCE(pr.name, 'Produk'), ')') as keterangan, 
+                        p.created_at
+                 FROM produksi p 
+                 LEFT JOIN karyawan e ON p.id_karyawan = e.id 
+                 LEFT JOIN produk pr ON p.id_produk = pr.id
+                 WHERE (p.kuantitas > 0 OR p.lembur_kuantitas > 0 OR p.kuantitas_bal > 0 OR p.lembur_kuantitas_bal > 0))
                 UNION ALL
-                (SELECT 'Kasbon' as type, CONCAT('Kasbon: ', e.name, ' mencatat hutang baru') as keterangan, d.created_at
-                 FROM kasbon d JOIN karyawan e ON d.id_karyawan = e.id)
+                (SELECT 'Kasbon' as type, 
+                        CONCAT('Kasbon: ', COALESCE(e.name, 'Karyawan'), ' mencatat hutang baru') as keterangan, 
+                        d.created_at
+                 FROM kasbon d 
+                 LEFT JOIN karyawan e ON d.id_karyawan = e.id)
                 ORDER BY created_at DESC
                 LIMIT 5
             ");
@@ -154,34 +187,49 @@ class DashboardController
             }
         } catch (\Exception $e) {}
 
-        // 7. Payroll Tertunda (Draft)
+        // 7. Payroll Tertunda (Draft) - Menghitung total nominal riil dari rincian penggajian
         $pendingPayroll = null;
         try {
-            $stmt = $db->query("SELECT * FROM penggajian WHERE status = 'draft' ORDER BY id DESC LIMIT 1");
+            $stmt = $db->query("
+                SELECT pg.*, 
+                       COALESCE(SUM(CASE WHEN pi.is_excluded = 0 THEN pi.gaji_bersih ELSE 0 END), 0) as total_nominal,
+                       COUNT(CASE WHEN pi.is_excluded = 0 THEN pi.id ELSE NULL END) as total_karyawan
+                FROM penggajian pg
+                LEFT JOIN rincian_penggajian pi ON pg.id = pi.id_penggajian
+                WHERE pg.status = 'draft'
+                GROUP BY pg.id
+                ORDER BY pg.id DESC
+                LIMIT 1
+            ");
             if ($stmt) {
                 $pendingPayroll = $stmt->fetch();
             }
         } catch (\Exception $e) {}
 
         view('dashboard/index', [
-            'title'              => 'Dashboard – Salary',
-            'pageKey'            => 'dashboard',
-            'pageTitle'          => 'Dashboard',
-            'today'              => $today,
-            'totalEmployees'     => $totalEmployees,
-            'boronganCount'      => $boronganCount,
-            'bulananCount'       => $bulananCount,
-            'presentTodayCount'  => $presentTodayCount,
-            'totalBungkusToday'  => $totalBungkusToday,
-            'totalBalToday'      => $totalBalToday,
-            'totalProducts'      => $totalProducts,
-            'todayProductions'   => $todayProductions,
-            'todayAttendances'   => $todayAttendances,
-            'activeEmployees'    => $activeEmployees,
-            'allProducts'        => $allProducts,
-            'topEmployees'       => $topEmployees,
-            'recentActivities'   => $activities,
-            'pendingPayroll'     => $pendingPayroll,
+            'title'                => 'Dashboard – Salary',
+            'pageKey'              => 'dashboard',
+            'pageTitle'            => 'Dashboard',
+            'today'                => $today,
+            'totalEmployees'       => $totalEmployees,
+            'boronganCount'        => $boronganCount,
+            'bulananCount'         => $bulananCount,
+            'presentTodayCount'    => $presentTodayCount,
+            'totalBungkusToday'    => $totalBungkusToday,
+            'totalBalToday'        => $totalBalToday,
+            'totalProducts'        => $totalProducts,
+            'todayProductions'     => $todayProductions,
+            'todayAttendances'     => $todayAttendances,
+            'activeEmployees'      => $activeEmployees,
+            'allProducts'          => $allProducts,
+            'topEmployees'         => $topEmployees,
+            'topEmployeesLastWeek' => $topEmployeesLastWeek,
+            'topEmployees7Days'    => $topEmployees7Days,
+            'weekPeriod'           => ['start' => $startOfWeek, 'end' => $endOfWeek],
+            'lastWeekPeriod'       => ['start' => $startOfLastWeek, 'end' => $endOfLastWeek],
+            'sevenDaysPeriod'      => ['start' => $startOf7Days, 'end' => $endOf7Days],
+            'recentActivities'     => $activities,
+            'pendingPayroll'       => $pendingPayroll,
         ]);
     }
 
