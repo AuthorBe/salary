@@ -19,10 +19,14 @@
                 <label class="form-label">Periode (Payroll Run)</label>
                 <select name="run_id" class="form-select">
                     <option value="">Semua Periode</option>
-                    <?php foreach ($runs as $run): ?>
+                    <?php foreach ($runs as $run): 
+                        $pDetails = getPayrollPeriodDetails($run);
+                        $pStr = count($pDetails) > 1 
+                            ? ('Borongan: ' . $pDetails['borongan']['formatted_short'] . ' | Bulanan: ' . $pDetails['bulanan']['formatted_short'])
+                            : ($pDetails[array_key_first($pDetails)]['formatted_short'] ?? (formatTanggalShort($run['periode_awal']) . ' – ' . formatTanggalShort($run['periode_akhir'])));
+                    ?>
                         <option value="<?= $run['id'] ?>" <?= ($filters['run_id'] == $run['id']) ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($run['name'] ?? 'Run #' . $run['id']) ?> (<?= ucfirst($run['type']) ?>) : 
-                            <?= date('d M Y', strtotime($run['periode_awal'])) ?> - <?= date('d M Y', strtotime($run['periode_akhir'])) ?>
+                            <?= htmlspecialchars($run['name'] ?? 'Run #' . $run['id']) ?> (<?= $pStr ?>)
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -65,13 +69,15 @@
                         <td colspan="5" class="text-center py-4 text-muted">Belum ada riwayat gaji yang ditemukan.</td>
                     </tr>
                     <?php else: ?>
-                        <?php foreach ($histories as $row): ?>
+                        <?php foreach ($histories as $row): 
+                            $itemPeriodFormatted = getPayrollPeriodForType($row, $row['tipe_gaji']);
+                        ?>
                         <tr>
                             <td class="ps-4 py-3 fw-medium text-dark"><?= htmlspecialchars($row['employee_name']) ?></td>
                             <td class="py-3">
                                 <div class="fw-bold text-dark mb-1"><?= htmlspecialchars($row['run_name'] ?? 'Run #' . $row['run_id']) ?></div>
                                 <div class="text-muted small">
-                                    <?= date('d M Y', strtotime($row['periode_awal'])) ?> - <?= date('d M Y', strtotime($row['periode_akhir'])) ?>
+                                    <i class="bi bi-calendar-event me-1 text-primary"></i> <?= $itemPeriodFormatted ?>
                                 </div>
                             </td>
                             <td class="py-3">

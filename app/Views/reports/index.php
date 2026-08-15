@@ -547,8 +547,8 @@
                                                                         <?= $typeName ?>
                                                                     </span>
                                                                 </td>
-                                                                <td class="text-muted">
-                                                                    <?= formatTanggalShort($bRow['periode_awal']) ?> – <?= formatTanggalShort($bRow['periode_akhir']) ?>
+                                                                <td>
+                                                                    <?= renderPayrollPeriodHtml($bRow, true) ?>
                                                                 </td>
                                                                 <td class="text-center fw-medium">
                                                                     <?= (int)$bRow['total_karyawan'] ?> Org
@@ -704,8 +704,8 @@
                                             <?= $tName ?>
                                         </span>
                                     </td>
-                                    <td class="text-muted">
-                                        <?= formatTanggalShort($run['periode_awal']) ?> – <?= formatTanggalShort($run['periode_akhir']) ?>
+                                    <td>
+                                        <?= renderPayrollPeriodHtml($run, true) ?>
                                     </td>
                                     <td class="text-center text-muted small">
                                         <?= !empty($run['disetujui_pada']) ? date('d/m/Y H:i', strtotime($run['disetujui_pada'])) : '-' ?>

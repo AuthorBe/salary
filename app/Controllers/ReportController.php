@@ -54,6 +54,7 @@ class ReportController
                 pr.type,
                 pr.periode_awal,
                 pr.periode_akhir,
+                pr.options_json,
                 pr.disetujui_pada,
                 COUNT(DISTINCT CASE WHEN pi.is_excluded = 0 THEN pi.id_karyawan ELSE NULL END) as total_karyawan,
                 SUM(CASE WHEN pi.is_excluded = 0 THEN pi.gaji_bersih ELSE 0 END) as total_pengeluaran,
@@ -61,7 +62,7 @@ class ReportController
             FROM penggajian pr
             JOIN rincian_penggajian pi ON pr.id = pi.id_penggajian
             WHERE pr.status = 'approved'
-            GROUP BY pr.id
+            GROUP BY pr.id, pr.name, pr.type, pr.periode_awal, pr.periode_akhir, pr.options_json, pr.disetujui_pada
             ORDER BY pr.periode_akhir DESC, pr.id DESC
         ");
         $rawApprovedRuns = $stmtBatches ? $stmtBatches->fetchAll() : [];

@@ -437,6 +437,157 @@ function formatTanggalShort(string $date): string
 }
 
 /**
+ * Format rentang tanggal cerdas (menghindari pengulangan nama bulan/tahun jika berada di bulan yang sama).
+ * Contoh:
+ *   - 08/08/2026 s/d 14/08/2026 -> "8 – 14 Agustus 2026" (short: "8 – 14 Ags 2026")
+ *   - 25/07/2026 s/d 01/08/2026 -> "25 Juli – 1 Agustus 2026" (short: "25 Jul – 1 Ags 2026")
+ */
+function formatRentangTanggal(string $start, string $end, bool $short = false): string
+{
+    $s = strtotime($start);
+    $e = strtotime($end);
+    if (!$s || !$e) {
+        return $start . ' - ' . $end;
+    }
+
+    $bulanShort = [
+        1 => 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+        'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des',
+    ];
+    $bulanLong = [
+        1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    $bMap = $short ? $bulanShort : $bulanLong;
+
+    $dStart = date('j', $s);
+    $mStart = (int)date('n', $s);
+    $yStart = date('Y', $s);
+
+    $dEnd = date('j', $e);
+    $mEnd = (int)date('n', $e);
+    $yEnd = date('Y', $e);
+
+    // Kasus 1: Hari sama (1 hari saja)
+    if ($start === $end) {
+        return "{$dStart} {$bMap[$mStart]} {$yStart}";
+    }
+
+    // Kasus 2: Bulan & Tahun sama (e.g. 8 – 14 Agustus 2026)
+    if ($mStart === $mEnd && $yStart === $yEnd) {
+        return "{$dStart} – {$dEnd} {$bMap[$mEnd]} {$yEnd}";
+    }
+
+    // Kasus 3: Beda Bulan, Tahun sama (e.g. 25 Juli – 1 Agustus 2026)
+    if ($yStart === $yEnd) {
+        return "{$dStart} {$bMap[$mStart]} – {$dEnd} {$bMap[$mEnd]} {$yEnd}";
+    }
+
+    // Kasus 4: Beda Tahun (e.g. 28 Des 2025 – 3 Jan 2026)
+    return "{$dStart} {$bMap[$mStart]} {$yStart} – {$dEnd} {$bMap[$mEnd]} {$yEnd}";
+}
+
+/**
+ * Ekstrak detail periode terpisah untuk Borongan dan Bulanan dari data payroll.
+ */
+function getPayrollPeriodDetails(array $payroll): array
+{
+    $options = [];
+    if (!empty($payroll['options_json'])) {
+        $decoded = json_decode((string)$payroll['options_json'], true);
+        if (is_array($decoded)) {
+            $options = $decoded;
+        }
+    }
+
+    $details = [];
+    $isMixed = ($payroll['type'] ?? '') === 'mixed';
+
+    if ($isMixed && !empty($options)) {
+        if (!empty($options['borongan']['start']) && !empty($options['borongan']['end'])) {
+            $details['borongan'] = [
+                'label'           => 'Borongan',
+                'start'           => $options['borongan']['start'],
+                'end'             => $options['borongan']['end'],
+                'formatted'       => formatRentangTanggal($options['borongan']['start'], $options['borongan']['end'], false),
+                'formatted_short' => formatRentangTanggal($options['borongan']['start'], $options['borongan']['end'], true),
+            ];
+        }
+        if (!empty($options['bulanan']['start']) && !empty($options['bulanan']['end'])) {
+            $details['bulanan'] = [
+                'label'           => 'Bulanan',
+                'start'           => $options['bulanan']['start'],
+                'end'             => $options['bulanan']['end'],
+                'formatted'       => formatRentangTanggal($options['bulanan']['start'], $options['bulanan']['end'], false),
+                'formatted_short' => formatRentangTanggal($options['bulanan']['start'], $options['bulanan']['end'], true),
+            ];
+        }
+    }
+
+    if (empty($details)) {
+        $type = $payroll['type'] ?? 'weekly';
+        $typeLabel = $type === 'weekly' ? 'Borongan' : ($type === 'monthly' ? 'Bulanan' : 'Gabungan');
+        $start = $payroll['periode_awal'] ?? date('Y-m-d');
+        $end = $payroll['periode_akhir'] ?? date('Y-m-d');
+        $key = $type === 'weekly' ? 'borongan' : ($type === 'monthly' ? 'bulanan' : 'general');
+        $details[$key] = [
+            'label'           => $typeLabel,
+            'start'           => $start,
+            'end'             => $end,
+            'formatted'       => formatRentangTanggal($start, $end, false),
+            'formatted_short' => formatRentangTanggal($start, $end, true),
+        ];
+    }
+
+    return $details;
+}
+
+/**
+ * Render representasi HTML rapi untuk periode payroll (memisahkan Borongan & Bulanan jika Gabungan).
+ */
+function renderPayrollPeriodHtml(array $payroll, bool $short = false): string
+{
+    $details = getPayrollPeriodDetails($payroll);
+
+    if (count($details) === 1) {
+        $d = reset($details);
+        return '<div class="fw-semibold text-dark text-nowrap" style="font-size: 0.8125rem;">' . ($short ? $d['formatted_short'] : $d['formatted']) . '</div>';
+    }
+
+    $html = '<div class="d-inline-flex flex-column gap-1.5 align-items-start">';
+    if (isset($details['borongan'])) {
+        $html .= '<div class="d-inline-flex align-items-center bg-light border rounded-pill px-2.5 py-1 text-nowrap gap-2 shadow-2xs" style="font-size: 0.75rem; border-color: #e2e8f0 !important;">'
+              . '<span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">Borongan</span> '
+              . '<span class="fw-semibold text-dark text-nowrap" style="font-size: 0.8rem;">' . ($short ? $details['borongan']['formatted_short'] : $details['borongan']['formatted']) . '</span>'
+              . '</div>';
+    }
+    if (isset($details['bulanan'])) {
+        $html .= '<div class="d-inline-flex align-items-center bg-light border rounded-pill px-2.5 py-1 text-nowrap gap-2 shadow-2xs" style="font-size: 0.75rem; border-color: #e2e8f0 !important;">'
+              . '<span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2 py-0.5" style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">Bulanan</span> '
+              . '<span class="fw-semibold text-dark text-nowrap" style="font-size: 0.8rem;">' . ($short ? $details['bulanan']['formatted_short'] : $details['bulanan']['formatted']) . '</span>'
+              . '</div>';
+    }
+    $html .= '</div>';
+    return $html;
+}
+
+/**
+ * Ambil detail periode khusus untuk tipe gaji karyawan tertentu.
+ */
+function getPayrollPeriodForType(array $payroll, string $employeeType, bool $short = false): string
+{
+    $details = getPayrollPeriodDetails($payroll);
+    $key = strtolower($employeeType);
+
+    if (isset($details[$key])) {
+        return $short ? $details[$key]['formatted_short'] : $details[$key]['formatted'];
+    }
+
+    $first = reset($details);
+    return $short ? $first['formatted_short'] : $first['formatted'];
+}
+
+/**
  * Ambil nilai konfigurasi dari tabel app_settings.
  * Cached di memory selama request berlangsung.
  *

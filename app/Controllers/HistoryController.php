@@ -22,7 +22,7 @@ class HistoryController
                 pi.id, pi.gaji_bersih, pi.hari_hadir, pi.total_uang_kehadiran, 
                 pi.total_upah_produksi, pi.total_potongan_kasbon,
                 e.name as employee_name, e.tipe_gaji,
-                pr.periode_awal, pr.periode_akhir, pr.type as run_type, pr.id as run_id, pr.disetujui_pada, pr.name as run_name
+                pr.periode_awal, pr.periode_akhir, pr.type as run_type, pr.options_json, pr.id as run_id, pr.disetujui_pada, pr.name as run_name
             FROM rincian_penggajian pi
             JOIN penggajian pr ON pi.id_penggajian = pr.id
             JOIN karyawan e ON pi.id_karyawan = e.id
@@ -56,7 +56,7 @@ class HistoryController
         $empStmt = $db->query("SELECT id, name FROM karyawan ORDER BY name ASC");
         $employees = $empStmt->fetchAll();
 
-        $runStmt = $db->query("SELECT id, type, periode_awal, periode_akhir, name FROM penggajian WHERE status = 'approved' ORDER BY id DESC");
+        $runStmt = $db->query("SELECT id, type, periode_awal, periode_akhir, options_json, name FROM penggajian WHERE status = 'approved' ORDER BY id DESC");
         $runs = $runStmt->fetchAll();
 
         $pageGuide = '
@@ -95,7 +95,7 @@ class HistoryController
             SELECT 
                 pi.*,
                 e.name as employee_name, e.tipe_gaji,
-                pr.periode_awal, pr.periode_akhir, pr.type as run_type, pr.disetujui_pada, pr.name as run_name
+                pr.periode_awal, pr.periode_akhir, pr.type as run_type, pr.options_json, pr.disetujui_pada, pr.name as run_name
             FROM rincian_penggajian pi
             JOIN penggajian pr ON pi.id_penggajian = pr.id
             JOIN karyawan e ON pi.id_karyawan = e.id
@@ -145,7 +145,7 @@ class HistoryController
             SELECT 
                 pi.*,
                 e.name as employee_name, e.tipe_gaji,
-                pr.periode_awal, pr.periode_akhir, pr.type as run_type, pr.disetujui_pada, pr.name as run_name
+                pr.periode_awal, pr.periode_akhir, pr.type as run_type, pr.options_json, pr.disetujui_pada, pr.name as run_name
             FROM rincian_penggajian pi
             JOIN penggajian pr ON pi.id_penggajian = pr.id
             JOIN karyawan e ON pi.id_karyawan = e.id

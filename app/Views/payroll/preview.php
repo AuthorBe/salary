@@ -45,11 +45,30 @@ foreach ($includedItems as $it) {
             <i class="bi bi-file-earmark-text text-primary me-1"></i> 
             Preview Payroll <?= $run['type'] === 'weekly' ? 'Mingguan' : ($run['type'] === 'monthly' ? 'Bulanan' : 'Gabungan') ?>
         </h5>
-        <div class="text-muted small d-flex flex-column flex-sm-row gap-1 gap-sm-2 align-items-start align-items-sm-center">
-            <span><i class="bi bi-calendar-event me-1"></i> <?= formatTanggal($run['periode_awal']) ?> - <?= formatTanggal($run['periode_akhir']) ?></span>
-            <span class="d-none d-sm-inline text-muted">|</span>
-            <span class="badge bg-light text-dark border fw-normal"><i class="bi bi-tag me-1"></i> Tipe: <?= $run['type'] === 'weekly' ? 'Mingguan' : ($run['type'] === 'monthly' ? 'Bulanan' : 'Gabungan') ?></span>
-        </div>
+        <?php $periodDetails = getPayrollPeriodDetails($run); ?>
+        <?php if (count($periodDetails) > 1): ?>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                <span class="badge bg-purple-subtle text-purple border border-purple-subtle px-2.5 py-1 rounded-pill" style="color: #6f42c1; background-color: #e2d9f3; border-color: #d6c8ef; font-size: 0.75rem;">
+                    <i class="bi bi-tag-fill me-1"></i> Tipe: Gabungan
+                </span>
+                <?php if (isset($periodDetails['borongan'])): ?>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill" style="font-size: 0.75rem;">
+                        <i class="bi bi-calendar-event me-1"></i> Borongan: <?= $periodDetails['borongan']['formatted'] ?>
+                    </span>
+                <?php endif; ?>
+                <?php if (isset($periodDetails['bulanan'])): ?>
+                    <span class="badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1 rounded-pill" style="font-size: 0.75rem;">
+                        <i class="bi bi-calendar-event me-1"></i> Bulanan: <?= $periodDetails['bulanan']['formatted'] ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+        <?php else: ?>
+            <div class="text-muted small d-flex flex-column flex-sm-row gap-1 gap-sm-2 align-items-start align-items-sm-center">
+                <span><i class="bi bi-calendar-event me-1"></i> <?= formatTanggal($run['periode_awal']) ?> - <?= formatTanggal($run['periode_akhir']) ?></span>
+                <span class="d-none d-sm-inline text-muted">|</span>
+                <span class="badge bg-light text-dark border fw-normal"><i class="bi bi-tag me-1"></i> Tipe: <?= $run['type'] === 'weekly' ? 'Mingguan' : ($run['type'] === 'monthly' ? 'Bulanan' : 'Gabungan') ?></span>
+            </div>
+        <?php endif; ?>
 
         <?php if (isset($_SESSION['flash_success'])): ?>
             <div class="alert alert-success border-0 shadow-sm d-flex align-items-center justify-content-between mt-3 mb-0">
@@ -158,13 +177,23 @@ foreach ($includedItems as $it) {
                     <?php 
                         $no = 1; 
                         $currentTipe = '';
+                        $periodDetails = getPayrollPeriodDetails($run);
                         foreach ($includedItems as $it): 
                             if ($currentTipe !== $it['tipe_gaji']):
                                 $currentTipe = $it['tipe_gaji'];
+                                $tipeKey = strtolower($currentTipe);
+                                $tipePeriodStr = isset($periodDetails[$tipeKey]) ? $periodDetails[$tipeKey]['formatted'] : (formatTanggal($run['periode_awal']) . ' – ' . formatTanggal($run['periode_akhir']));
                     ?>
                         <tr>
-                            <td colspan="<?= $isDraft ? 6 : 5 ?>" class="bg-light fw-bold text-uppercase text-secondary py-2 border-bottom border-top shadow-sm" style="font-size: 0.75rem; letter-spacing: 1.5px;">
-                                <i class="bi bi-people-fill me-2 text-primary"></i> Grup Karyawan <?= $currentTipe ?>
+                            <td colspan="<?= $isDraft ? 6 : 5 ?>" class="bg-light fw-bold text-uppercase text-secondary py-2.5 px-3 border-bottom border-top shadow-sm" style="font-size: 0.75rem; letter-spacing: 1px;">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <div>
+                                        <i class="bi bi-people-fill me-2 text-primary"></i> Grup Karyawan <?= $currentTipe ?>
+                                    </div>
+                                    <span class="badge bg-white text-secondary border fw-normal text-capitalize" style="font-size: 0.725rem; letter-spacing: 0;">
+                                        <i class="bi bi-calendar-range text-primary me-1"></i> Periode: <?= $tipePeriodStr ?>
+                                    </span>
+                                </div>
                             </td>
                         </tr>
                     <?php 

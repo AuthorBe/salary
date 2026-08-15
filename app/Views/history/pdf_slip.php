@@ -80,10 +80,12 @@
     </style>
 </head>
 <body>
-
+<?php
+    $slipPeriodFormatted = getPayrollPeriodForType($data, $data['tipe_gaji']);
+?>
     <div class="header">
         <h1>SLIP GAJI KARYAWAN</h1>
-        <p>Periode: <?= date('d M Y', strtotime($data['periode_awal'])) ?> - <?= date('d M Y', strtotime($data['periode_akhir'])) ?></p>
+        <p>Periode: <?= htmlspecialchars($slipPeriodFormatted) ?></p>
     </div>
 
     <table class="info-table">

@@ -74,13 +74,13 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
-                        <tr>
-                            <th scope="col" class="ps-3">ID</th>
-                            <th scope="col">PERIODE</th>
-                            <th scope="col">TIPE</th>
-                            <th scope="col">DIBUAT PADA</th>
-                            <th scope="col">STATUS</th>
-                            <th scope="col" class="text-end pe-3">AKSI</th>
+                        <tr style="height: 46px;">
+                            <th scope="col" class="ps-3" style="width: 24%;">NAMA / ID</th>
+                            <th scope="col" style="min-width: 240px;">PERIODE KERJA</th>
+                            <th scope="col" style="width: 13%;">TIPE</th>
+                            <th scope="col" style="width: 16%;">DIBUAT PADA</th>
+                            <th scope="col" style="width: 13%;">STATUS</th>
+                            <th scope="col" class="text-end pe-3" style="width: 16%;">AKSI</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -91,9 +91,7 @@
                                     <small>#<?= $pr['id'] ?></small>
                                 </td>
                                 <td>
-                                    <div class="fw-bold text-dark">
-                                        <?= formatTanggal($pr['periode_awal']) ?> - <?= formatTanggal($pr['periode_akhir']) ?>
-                                    </div>
+                                    <?= renderPayrollPeriodHtml($pr) ?>
                                 </td>
                                 <td>
                                     <?php if ($pr['type'] === 'weekly'): ?>
