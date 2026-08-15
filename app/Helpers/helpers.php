@@ -649,3 +649,113 @@ function renderEmployeeOptions(array $employees, $selectedId = null): string
     return $html;
 }
 
+/**
+ * Menghasilkan saran nama payroll ringkas dan akurat berdasarkan tipe dan rentang tanggal.
+ * Contoh: "Agustus Week 1", "Bulanan Agustus 2026", "Gabungan Agustus Week 2", "Borongan W1 Jul & Bulanan Agu".
+ *
+ * @param string|null $startDate Tanggal awal (Y-m-d)
+ * @param string|null $endDate Tanggal akhir (Y-m-d)
+ * @param string $type Tipe payroll ('weekly', 'monthly', 'mixed')
+ * @param array $options Opsi tambahan (misal dates untuk borongan dan bulanan jika mixed)
+ * @return string Judul payroll ringkas
+ */
+function generateCompactPayrollTitle(?string $startDate, ?string $endDate, string $type = 'weekly', array $options = []): string
+{
+    $bulanMap = [
+        1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+        5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+        9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+    ];
+    $bulanShortMap = [
+        1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
+        5 => 'Mei', 6 => 'Jun', 7 => 'Jul', 8 => 'Agu',
+        9 => 'Sep', 10 => 'Okt', 11 => 'Nov', 12 => 'Des'
+    ];
+
+    try {
+        if ($type === 'mixed' && !empty($options['borongan']['start']) && !empty($options['borongan']['end'])) {
+            $wStart = $options['borongan']['start'];
+            $wEnd = $options['borongan']['end'];
+            $mStart = $options['bulanan']['start'] ?? $startDate;
+            $mEnd = $options['bulanan']['end'] ?? $endDate;
+
+            // Hitung bulan mayoritas & minggu borongan
+            $calcMaj = function(string $s, string $e) {
+                $sDt = new \DateTime($s);
+                $eDt = new \DateTime($e);
+                if ($sDt > $eDt) { $temp = $sDt; $sDt = $eDt; $eDt = $temp; }
+                $counts = [];
+                $cur = clone $sDt;
+                while ($cur <= $eDt) {
+                    $ym = $cur->format('Y-m');
+                    $counts[$ym] = ($counts[$ym] ?? 0) + 1;
+                    $cur->modify('+1 day');
+                }
+                arsort($counts);
+                return array_key_first($counts) ?: $sDt->format('Y-m');
+            };
+
+            $wMajYm = $calcMaj($wStart, $wEnd);
+            [$wY, $wM] = explode('-', $wMajYm);
+            $wMInt = (int)$wM;
+            $wMonthName = $bulanMap[$wMInt] ?? 'Bulan';
+            $wShortMonth = $bulanShortMap[$wMInt] ?? 'Bln';
+
+            $wStartDt = new \DateTime($wStart);
+            $wStartInMaj = ($wStartDt->format('Y-m') === $wMajYm);
+            $wDay = $wStartInMaj ? (int)$wStartDt->format('j') : 1;
+            $wWeek = min(5, max(1, (int)ceil($wDay / 7)));
+
+            // Hitung bulan mayoritas bulanan
+            $mMajYm = $calcMaj($mStart ?: $wStart, $mEnd ?: $wEnd);
+            [$mY, $mM] = explode('-', $mMajYm);
+            $mMInt = (int)$mM;
+            $mMonthName = $bulanMap[$mMInt] ?? 'Bulan';
+            $mShortMonth = $bulanShortMap[$mMInt] ?? 'Bln';
+
+            if ($wMajYm === $mMajYm) {
+                return "Gabungan {$wMonthName} Week {$wWeek}";
+            }
+
+            return "Borongan W{$wWeek} {$wShortMonth} & Bulanan {$mShortMonth}";
+        }
+
+        $refStart = $startDate ?: date('Y-m-d');
+        $refEnd = $endDate ?: date('Y-m-d');
+        $sDt = new \DateTime($refStart);
+        $eDt = new \DateTime($refEnd);
+        if ($sDt > $eDt) {
+            $temp = $sDt; $sDt = $eDt; $eDt = $temp;
+        }
+
+        // Hitung bulan mayoritas (modus hari)
+        $monthCounts = [];
+        $curr = clone $sDt;
+        while ($curr <= $eDt) {
+            $ym = $curr->format('Y-m');
+            $monthCounts[$ym] = ($monthCounts[$ym] ?? 0) + 1;
+            $curr->modify('+1 day');
+        }
+        arsort($monthCounts);
+        $majYm = array_key_first($monthCounts) ?: $sDt->format('Y-m');
+        [$majY, $majM] = explode('-', $majYm);
+        $majMInt = (int)$majM;
+        $monthName = $bulanMap[$majMInt] ?? $sDt->format('F');
+        $year = $majY;
+
+        if ($type === 'monthly') {
+            return "Bulanan {$monthName} {$year}";
+        }
+
+        // Hitung nomor minggu (Week 1..5) dalam bulan mayoritas
+        $startInMaj = ($sDt->format('Y-m') === $majYm);
+        $dayOfMonth = $startInMaj ? (int)$sDt->format('j') : 1;
+        $weekNum = min(5, max(1, (int)ceil($dayOfMonth / 7)));
+
+        return "{$monthName} Week {$weekNum}";
+    } catch (\Throwable) {
+        return 'Gaji ' . ucfirst($type) . ' ' . date('d M Y');
+    }
+}
+
+

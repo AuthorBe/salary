@@ -65,11 +65,14 @@ class PayrollController
         $period_start = $_GET['periode_awal'] ?? ($type === 'monthly' ? $startMonthly->format('Y-m-d') : $startWeekly->format('Y-m-d'));
         $period_end = $_GET['periode_akhir'] ?? ($type === 'monthly' ? $endMonthly->format('Y-m-d') : $endWeekly->format('Y-m-d'));
         
+        $initialName = generateCompactPayrollTitle($period_start, $period_end, $type);
+
         view('payroll/create', [
             'title' => 'Generate Payroll Baru',
             'type' => $type,
             'periode_awal' => $period_start,
             'periode_akhir' => $period_end,
+            'default_payroll_name' => $initialName,
             'default_weekly_start' => $startWeekly->format('Y-m-d'),
             'default_weekly_end' => $endWeekly->format('Y-m-d'),
             'default_monthly_start' => $startMonthly->format('Y-m-d'),
@@ -103,8 +106,13 @@ class PayrollController
         if ($isWeekly) {
             $wStart = $_POST['periode_awal_weekly'] ?? '';
             $wEnd = $_POST['periode_akhir_weekly'] ?? '';
-            if (!$wStart || !$wEnd || $wStart > $wEnd) {
-                $_SESSION['flash_error'] = 'Rentang tanggal Borongan tidak valid.';
+            if (empty($wStart) || empty($wEnd)) {
+                $_SESSION['flash_error'] = 'Rentang tanggal untuk Karyawan Borongan harus diisi lengkap.';
+                redirect('/payroll/create');
+                return;
+            }
+            if ($wStart > $wEnd) {
+                $_SESSION['flash_error'] = 'Tanggal awal Borongan tidak boleh lebih besar dari tanggal akhir.';
                 redirect('/payroll/create');
                 return;
             }
@@ -116,8 +124,13 @@ class PayrollController
         if ($isMonthly) {
             $mStart = $_POST['periode_awal_monthly'] ?? '';
             $mEnd = $_POST['periode_akhir_monthly'] ?? '';
-            if (!$mStart || !$mEnd || $mStart > $mEnd) {
-                $_SESSION['flash_error'] = 'Rentang tanggal Bulanan tidak valid.';
+            if (empty($mStart) || empty($mEnd)) {
+                $_SESSION['flash_error'] = 'Rentang tanggal untuk Karyawan Bulanan harus diisi lengkap.';
+                redirect('/payroll/create');
+                return;
+            }
+            if ($mStart > $mEnd) {
+                $_SESSION['flash_error'] = 'Tanggal awal Bulanan tidak boleh lebih besar dari tanggal akhir.';
                 redirect('/payroll/create');
                 return;
             }
@@ -132,9 +145,7 @@ class PayrollController
 
         $name = trim($_POST['name'] ?? '');
         if ($name === '') {
-            $name = 'Gaji ' . ucfirst($type) . ' ' . date('d M Y', strtotime($period_start));
-        } else {
-            $name = ucwords($name);
+            $name = generateCompactPayrollTitle($period_start, $period_end, $type, $options);
         }
 
         $db = getDB();
