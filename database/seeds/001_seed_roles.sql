@@ -1,8 +1,8 @@
 -- ============================================================
--- Seed 001: Roles
+-- Seed 001: Roles (Peran)
 -- ============================================================
 
-INSERT IGNORE INTO `roles` (`id`, `name`) VALUES
+INSERT IGNORE INTO `peran` (`id`, `name`) VALUES
 (1, 'Admin'),
 (2, 'Owner'),
 (3, 'Mandor');

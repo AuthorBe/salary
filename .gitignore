@@ -34,3 +34,6 @@ check_*.php
 patch*.php
 scratch/
 *.sql
+!database/migrations/*.sql
+!database/seeds/*.sql
+

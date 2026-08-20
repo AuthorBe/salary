@@ -380,10 +380,11 @@ function redirect(string $path): never
  *
  * Contoh: formatRupiah(1500000) → "Rp 1.500.000"
  */
-function formatRupiah(int $amount): string
+function formatRupiah(int|float $amount): string
 {
-    return 'Rp ' . number_format($amount, 0, ',', '.');
+    return 'Rp ' . number_format((float) $amount, 0, ',', '.');
 }
+
 
 /**
  * Parsing string input rupiah (misal "1.500.000") menjadi integer (1500000).

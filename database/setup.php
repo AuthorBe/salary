@@ -93,13 +93,13 @@ executeSqlFolder($db, __DIR__ . '/seeds', 'Seeds');
 echo "\nMembuat User Admin Default...\n";
 try {
     // Cek apakah admin sudah ada
-    $stmt = $db->prepare("SELECT id FROM users WHERE username = 'admin'");
+    $stmt = $db->prepare("SELECT id FROM pengguna WHERE nama_pengguna = 'admin'");
     $stmt->execute();
     if ($stmt->fetch()) {
         echo "ℹ️ User 'admin' sudah ada, dilewati.\n";
     } else {
         // Ambil role ID untuk Admin
-        $stmtRole = $db->prepare("SELECT id FROM roles WHERE name = 'Admin'");
+        $stmtRole = $db->prepare("SELECT id FROM peran WHERE name = 'Admin'");
         $stmtRole->execute();
         $roleId = $stmtRole->fetchColumn();
 
@@ -109,7 +109,7 @@ try {
 
         $passwordHash = password_hash('Admin123!', PASSWORD_BCRYPT);
         $stmtInsert = $db->prepare(
-            "INSERT INTO users (name, username, password_hash, role_id) VALUES ('Administrator', 'admin', ?, ?)"
+            "INSERT INTO pengguna (name, nama_pengguna, kata_sandi, id_peran) VALUES ('Administrator', 'admin', ?, ?)"
         );
         $stmtInsert->execute([$passwordHash, $roleId]);
         echo "✅ User 'admin' berhasil dibuat.\n";
@@ -123,19 +123,19 @@ try {
 // ── 6. Buat User Developer (Superuser) ──────────────────────────────────
 echo "\nMembuat User Developer (Superuser)...\n";
 try {
-    $stmt = $db->prepare("SELECT id FROM users WHERE username = 'developer'");
+    $stmt = $db->prepare("SELECT id FROM pengguna WHERE nama_pengguna = 'developer'");
     $stmt->execute();
     if ($stmt->fetch()) {
-        // Pastikan is_superuser = 1
-        $db->exec("UPDATE users SET is_superuser = 1 WHERE username = 'developer'");
-        echo "ℹ️ User 'developer' sudah ada — is_superuser dikonfirmasi 1.\n";
+        // Pastikan superuser = 1
+        $db->exec("UPDATE pengguna SET superuser = 1 WHERE nama_pengguna = 'developer'");
+        echo "ℹ️ User 'developer' sudah ada — superuser dikonfirmasi 1.\n";
     } else {
-        $stmtRole = $db->query("SELECT id FROM roles ORDER BY id LIMIT 1");
+        $stmtRole = $db->query("SELECT id FROM peran ORDER BY id LIMIT 1");
         $roleId   = $stmtRole->fetchColumn();
 
         $passwordHash = password_hash('developer123', PASSWORD_BCRYPT);
         $db->prepare(
-            "INSERT INTO users (name, username, password_hash, role_id, is_superuser) VALUES ('Developer', 'developer', ?, ?, 1)"
+            "INSERT INTO pengguna (name, nama_pengguna, kata_sandi, id_peran, superuser) VALUES ('Developer', 'developer', ?, ?, 1)"
         )->execute([$passwordHash, $roleId]);
 
         echo "✅ User 'developer' berhasil dibuat.\n";

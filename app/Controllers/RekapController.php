@@ -1,10 +1,39 @@
 <?php
+declare(strict_types=1);
+
 namespace App\Controllers;
 
 use App\Models\Employee;
+use App\Models\Saving;
 
 class RekapController
 {
+    /**
+     * Sanitasi dan validasi rentang tanggal input.
+     * Fallback ke awal dan akhir bulan berjalan jika kosong/tidak valid.
+     * Memastikan $startDate <= $endDate.
+     *
+     * @return array{0: string, 1: string} [$startDate, $endDate]
+     */
+    protected function sanitizeDates(?string $start, ?string $end): array
+    {
+        $startDate = !empty($start) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $start)
+            ? $start
+            : date('Y-m-01');
+
+        $endDate = !empty($end) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)
+            ? $end
+            : date('Y-m-t');
+
+        if ($startDate > $endDate) {
+            $temp = $startDate;
+            $startDate = $endDate;
+            $endDate = $temp;
+        }
+
+        return [$startDate, $endDate];
+    }
+
     public function index(): void
     {
         requireLogin();
@@ -14,7 +43,7 @@ class RekapController
         view('rekap/index', [
             'title'     => 'Rekapitulasi – Salary',
             'pageTitle' => 'Gerbang Rekapitulasi',
-            'pageKey'   => 'rekap'
+            'pageKey'   => 'rekap',
         ]);
     }
 
@@ -24,19 +53,18 @@ class RekapController
         checkPermission('rekap');
 
         $db = getDB();
-        $start_date = $_GET['start_date'] ?? date('Y-m-01');
-        $end_date   = $_GET['end_date'] ?? date('Y-m-t');
+        [$start_date, $end_date] = $this->sanitizeDates($_GET['start_date'] ?? null, $_GET['end_date'] ?? null);
 
         $stmt = $db->prepare("
             SELECT 
                 k.id, k.name, k.tipe_gaji,
-                SUM(a.hadir) as total_hadir,
-                SUM(CASE WHEN a.hadir = 0 AND a.catatan != '' THEN 1 ELSE 0 END) as total_absen,
-                SUM(CASE WHEN a.hadir = 1 AND a.telat = 1 THEN 1 ELSE 0 END) as total_telat
+                COALESCE(SUM(a.hadir), 0) as total_hadir,
+                COALESCE(SUM(CASE WHEN a.hadir = 0 AND (a.catatan IS NOT NULL AND a.catatan != '') THEN 1 ELSE 0 END), 0) as total_absen,
+                COALESCE(SUM(CASE WHEN a.hadir = 1 AND a.telat = 1 THEN 1 ELSE 0 END), 0) as total_telat
             FROM karyawan k
             LEFT JOIN absensi a ON k.id = a.id_karyawan AND a.date BETWEEN ? AND ?
             WHERE k.aktif = 1
-            GROUP BY k.id
+            GROUP BY k.id, k.name, k.tipe_gaji
             ORDER BY k.tipe_gaji ASC, k.name ASC
         ");
         $stmt->execute([$start_date, $end_date]);
@@ -48,7 +76,7 @@ class RekapController
             'pageKey'    => 'rekap',
             'start_date' => $start_date,
             'end_date'   => $end_date,
-            'data'       => $data
+            'data'       => $data,
         ]);
     }
 
@@ -58,22 +86,21 @@ class RekapController
         checkPermission('rekap');
 
         $db = getDB();
-        $start_date = $_GET['start_date'] ?? date('Y-m-01');
-        $end_date   = $_GET['end_date'] ?? date('Y-m-t');
+        [$start_date, $end_date] = $this->sanitizeDates($_GET['start_date'] ?? null, $_GET['end_date'] ?? null);
 
         // Ambil data produksi reguler
         $stmt = $db->prepare("
             SELECT 
                 p.date,
-                k.name as employee_name,
-                pr.name as product_name,
-                p.kuantitas as total_qty,
-                p.kuantitas_bal as total_bal,
-                pg.harga_per_bungkus
+                COALESCE(k.name, 'Karyawan Dihapus') as employee_name,
+                COALESCE(pr.name, 'Produk Dihapus') as product_name,
+                COALESCE(p.kuantitas, 0) as total_qty,
+                COALESCE(p.kuantitas_bal, 0) as total_bal,
+                COALESCE(pg.harga_per_bungkus, 0) as harga_per_bungkus
             FROM produksi p
-            JOIN karyawan k ON p.id_karyawan = k.id
-            JOIN produk pr ON p.id_produk = pr.id
-            JOIN kelompok_harga_produk pg ON pr.id_kelompok_harga = pg.id
+            LEFT JOIN karyawan k ON p.id_karyawan = k.id
+            LEFT JOIN produk pr ON p.id_produk = pr.id
+            LEFT JOIN kelompok_harga_produk pg ON pr.id_kelompok_harga = pg.id
             WHERE p.date BETWEEN ? AND ?
             ORDER BY p.date ASC, k.name ASC, pr.name ASC
         ");
@@ -92,27 +119,27 @@ class RekapController
                     'details' => []
                 ];
             }
-            $upah = $row['total_qty'] * $row['harga_per_bungkus'];
+            $upah = (float)$row['total_qty'] * (float)$row['harga_per_bungkus'];
             
-            $groupedData[$date]['total_qty'] += $row['total_qty'];
-            $groupedData[$date]['total_bal'] += $row['total_bal'];
+            $groupedData[$date]['total_qty'] += (int)$row['total_qty'];
+            $groupedData[$date]['total_bal'] += (float)$row['total_bal'];
             $groupedData[$date]['total_upah'] += $upah;
             $groupedData[$date]['details'][] = [
                 'employee_name' => $row['employee_name'],
-                'product_name' => $row['product_name'],
-                'qty' => $row['total_qty'],
-                'bal' => $row['total_bal'],
-                'upah' => $upah
+                'product_name'  => $row['product_name'],
+                'qty'           => (int)$row['total_qty'],
+                'bal'           => (float)$row['total_bal'],
+                'upah'          => $upah
             ];
         }
 
         view('rekap/production', [
-            'title'      => 'Rekap Produksi – Salary',
-            'pageTitle'  => 'Rekap Produksi',
-            'pageKey'    => 'rekap',
-            'start_date' => $start_date,
-            'end_date'   => $end_date,
-            'groupedData'=> $groupedData
+            'title'       => 'Rekap Produksi – Salary',
+            'pageTitle'   => 'Rekap Produksi',
+            'pageKey'     => 'rekap',
+            'start_date'  => $start_date,
+            'end_date'    => $end_date,
+            'groupedData' => $groupedData,
         ]);
     }
 
@@ -122,29 +149,28 @@ class RekapController
         checkPermission('rekap');
 
         $db = getDB();
-        $start_date = $_GET['start_date'] ?? date('Y-m-01');
-        $end_date   = $_GET['end_date'] ?? date('Y-m-t');
+        [$start_date, $end_date] = $this->sanitizeDates($_GET['start_date'] ?? null, $_GET['end_date'] ?? null);
 
         // Untuk lembur, ada bulanan (nominal) dan borongan (kuantitas)
         $stmtBulanan = $db->prepare("
-            SELECT k.id, k.name, k.tipe_gaji, SUM(a.lembur_nominal) as total_uang_lembur
+            SELECT k.id, k.name, k.tipe_gaji, COALESCE(SUM(a.lembur_nominal), 0) as total_uang_lembur
             FROM absensi a
             JOIN karyawan k ON a.id_karyawan = k.id
             WHERE a.date BETWEEN ? AND ? AND k.tipe_gaji = 'bulanan' AND a.lembur_nominal > 0
-            GROUP BY k.id
+            GROUP BY k.id, k.name, k.tipe_gaji
             ORDER BY k.name ASC
         ");
         $stmtBulanan->execute([$start_date, $end_date]);
         $dataBulanan = $stmtBulanan->fetchAll();
 
         $stmtBorongan = $db->prepare("
-            SELECT k.id, k.name, k.tipe_gaji, SUM(p.lembur_kuantitas * pg.harga_per_bungkus) as total_uang_lembur
+            SELECT k.id, k.name, k.tipe_gaji, COALESCE(SUM(p.lembur_kuantitas * COALESCE(pg.harga_per_bungkus, 0)), 0) as total_uang_lembur
             FROM produksi p
             JOIN karyawan k ON p.id_karyawan = k.id
-            JOIN produk pr ON p.id_produk = pr.id
-            JOIN kelompok_harga_produk pg ON pr.id_kelompok_harga = pg.id
+            LEFT JOIN produk pr ON p.id_produk = pr.id
+            LEFT JOIN kelompok_harga_produk pg ON pr.id_kelompok_harga = pg.id
             WHERE p.date BETWEEN ? AND ? AND p.lembur_kuantitas > 0
-            GROUP BY k.id
+            GROUP BY k.id, k.name, k.tipe_gaji
             ORDER BY k.name ASC
         ");
         $stmtBorongan->execute([$start_date, $end_date]);
@@ -152,9 +178,9 @@ class RekapController
 
         $data = array_merge($dataBulanan, $dataBorongan);
         usort($data, function($a, $b) {
-            $cmp = strcmp($a['tipe_gaji'], $b['tipe_gaji']);
+            $cmp = strcmp((string)$a['tipe_gaji'], (string)$b['tipe_gaji']);
             if ($cmp === 0) {
-                return strcmp($a['name'], $b['name']);
+                return strcmp((string)$a['name'], (string)$b['name']);
             }
             return $cmp;
         });
@@ -165,7 +191,7 @@ class RekapController
             'pageKey'    => 'rekap',
             'start_date' => $start_date,
             'end_date'   => $end_date,
-            'data'       => $data
+            'data'       => $data,
         ]);
     }
 
@@ -175,16 +201,21 @@ class RekapController
         checkPermission('rekap');
 
         $db = getDB();
-        $start_date = $_GET['start_date'] ?? date('Y-m-01');
-        $end_date   = $_GET['end_date'] ?? date('Y-m-t');
-        $emp_id     = (int)($_GET['id_karyawan'] ?? 0);
+        [$start_date, $end_date] = $this->sanitizeDates($_GET['start_date'] ?? null, $_GET['end_date'] ?? null);
+        $emp_id = (int)($_GET['id_karyawan'] ?? 0);
 
         $empModel = new Employee();
         $employees = $empModel->getAllActive();
 
         $empData = null;
         $stats = [
-            'hadir' => 0, 'absen' => 0, 'telat' => 0, 'produksi_reguler' => 0, 'uang_lembur' => 0, 'kasbon_sisa' => 0
+            'hadir'             => 0,
+            'absen'             => 0,
+            'telat'             => 0,
+            'produksi_reguler'  => 0.0,
+            'uang_lembur'       => 0.0,
+            'kasbon_sisa'       => 0.0,
+            'tabungan_saldo'    => 0.0,
         ];
         $logs = [];
 
@@ -197,45 +228,49 @@ class RekapController
                 $attLogs = $attStmt->fetchAll();
 
                 foreach ($attLogs as $a) {
-                    if ($a['hadir'] == 1) {
+                    $d = $a['date'];
+                    if ((int)$a['hadir'] === 1) {
                         $stats['hadir']++;
-                        if ($a['telat'] == 1) $stats['telat']++;
-                    } else if ($a['catatan']) {
+                        if ((int)$a['telat'] === 1) {
+                            $stats['telat']++;
+                        }
+                    } elseif (!empty($a['catatan'])) {
                         $stats['absen']++;
                     }
                     
-                    if ($empData['tipe_gaji'] === 'bulanan' && $a['lembur_nominal'] > 0) {
-                        $stats['uang_lembur'] += $a['lembur_nominal'];
+                    if ($empData['tipe_gaji'] === 'bulanan' && (float)$a['lembur_nominal'] > 0) {
+                        $stats['uang_lembur'] += (float)$a['lembur_nominal'];
                     }
 
-                    $logs[$a['date']]['absensi'] = $a;
+                    $logs[$d]['absensi'] = $a;
                 }
 
                 // Produksi & Lembur Borongan
                 if ($empData['tipe_gaji'] === 'borongan') {
                     $prodStmt = $db->prepare("
-                        SELECT p.*, pr.name as product_name, pg.harga_per_bungkus 
+                        SELECT p.*, pr.name as product_name, COALESCE(pg.harga_per_bungkus, 0) as harga_per_bungkus 
                         FROM produksi p
-                        JOIN produk pr ON p.id_produk = pr.id
-                        JOIN kelompok_harga_produk pg ON pr.id_kelompok_harga = pg.id
+                        LEFT JOIN produk pr ON p.id_produk = pr.id
+                        LEFT JOIN kelompok_harga_produk pg ON pr.id_kelompok_harga = pg.id
                         WHERE p.id_karyawan = ? AND p.date BETWEEN ? AND ?
                     ");
                     $prodStmt->execute([$emp_id, $start_date, $end_date]);
                     $prodLogs = $prodStmt->fetchAll();
 
                     foreach ($prodLogs as $p) {
-                        $uangProd = $p['kuantitas'] * $p['harga_per_bungkus'];
+                        $d = $p['date'];
+                        $uangProd = (float)$p['kuantitas'] * (float)$p['harga_per_bungkus'];
                         $stats['produksi_reguler'] += $uangProd;
                         
-                        $uangLembur = $p['lembur_kuantitas'] * $p['harga_per_bungkus'];
+                        $uangLembur = (float)$p['lembur_kuantitas'] * (float)$p['harga_per_bungkus'];
                         $stats['uang_lembur'] += $uangLembur;
 
-                        $logs[$p['date']]['produksi'][] = $p;
+                        $logs[$d]['produksi'][] = $p;
                     }
                 }
 
                 // Kasbon Sisa
-                $kasbonStmt = $db->prepare("SELECT SUM(sisa_nominal) FROM kasbon WHERE id_karyawan = ? AND status != 'lunas'");
+                $kasbonStmt = $db->prepare("SELECT COALESCE(SUM(sisa_nominal), 0) FROM kasbon WHERE id_karyawan = ? AND status != 'lunas'");
                 $kasbonStmt->execute([$emp_id]);
                 $stats['kasbon_sisa'] = (float)$kasbonStmt->fetchColumn();
 
@@ -244,10 +279,11 @@ class RekapController
                 $pinjamStmt->execute([$emp_id, $start_date, $end_date]);
                 $pinjamLogs = $pinjamStmt->fetchAll();
                 foreach ($pinjamLogs as $k) {
-                    $logs[$k['date']]['kasbon'][] = [
-                        'type' => 'pinjam',
-                        'nominal' => $k['total_nominal'],
-                        'keterangan' => $k['keterangan'] ?: 'Pinjam Kasbon'
+                    $d = $k['date'];
+                    $logs[$d]['kasbon'][] = [
+                        'type'       => 'pinjam',
+                        'nominal'    => (float)$k['total_nominal'],
+                        'keterangan' => $k['keterangan'] ?: 'Pinjam Kasbon',
                     ];
                 }
 
@@ -261,10 +297,33 @@ class RekapController
                 $bayarStmt->execute([$emp_id, $start_date, $end_date]);
                 $bayarLogs = $bayarStmt->fetchAll();
                 foreach ($bayarLogs as $b) {
-                    $logs[$b['date']]['kasbon'][] = [
-                        'type' => 'bayar',
-                        'nominal' => $b['nominal'],
-                        'keterangan' => $b['catatan'] ?: ($b['method'] == 'payroll' ? 'Dipotong dari gaji' : 'Pembayaran cicilan')
+                    $d = $b['date'];
+                    $logs[$d]['kasbon'][] = [
+                        'type'       => 'bayar',
+                        'nominal'    => (float)$b['nominal'],
+                        'keterangan' => $b['catatan'] ?: ($b['method'] === 'payroll' ? 'Dipotong dari gaji' : 'Pembayaran cicilan'),
+                    ];
+                }
+
+                // Saldo Tabungan
+                $savingModel = new Saving();
+                $stats['tabungan_saldo'] = $savingModel->getBalance($emp_id);
+
+                // Transaksi Tabungan
+                $tabunganStmt = $db->prepare("
+                    SELECT id, tipe, jumlah, sumber, tanggal as date, keterangan
+                    FROM transaksi_tabungan
+                    WHERE id_karyawan = ? AND tanggal BETWEEN ? AND ?
+                ");
+                $tabunganStmt->execute([$emp_id, $start_date, $end_date]);
+                $tabunganLogs = $tabunganStmt->fetchAll();
+                foreach ($tabunganLogs as $t) {
+                    $d = $t['date'];
+                    $logs[$d]['tabungan'][] = [
+                        'tipe'       => $t['tipe'],
+                        'jumlah'     => (float)$t['jumlah'],
+                        'keterangan' => $t['keterangan'] ?: ($t['tipe'] === 'deposit' ? 'Setoran Tabungan' : 'Penarikan Tabungan'),
+                        'sumber'     => $t['sumber'],
                     ];
                 }
             }
@@ -282,7 +341,7 @@ class RekapController
             'emp_id'     => $emp_id,
             'empData'    => $empData,
             'stats'      => $stats,
-            'logs'       => $logs
+            'logs'       => $logs,
         ]);
     }
 }

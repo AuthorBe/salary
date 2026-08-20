@@ -39,4 +39,6 @@ return [
     // ── Fase 5 ──────────────────────────────────────────────────────────────
     'payroll_history' => 'Riwayat Payroll',
     'reports_owner'   => 'Laporan Owner',
+    'rekap'           => 'Rekapitulasi',
 ];
+

@@ -68,11 +68,14 @@
                 <i class="bi bi-grid-1x2-fill" style="color: #3b82f6;"></i>
                 <span>Dashboard</span>
             </a>
+            <?php if (hasPermission('rekap')): ?>
             <a href="<?= url('/rekap') ?>"
                class="nav-item <?= ($pageKey ?? '') === 'rekap' ? 'active' : '' ?>">
                 <i class="bi bi-clipboard2-data-fill" style="color: #f59e0b;"></i>
                 <span>Rekapitulasi</span>
             </a>
+            <?php endif; ?>
+
         </div>
 
         <!-- Data Master (Fase 1) -->
